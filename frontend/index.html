@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt_Studio // Terminal v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --font:'JetBrains Mono','Courier New',monospace;
+  --g1:#33ff66;--g2:#00cc44;--g3:#007722;--gd:#004411;
+  --yl:#ffcc00;--rd:#ff4444;--cy:#00ccff;--wh:#e8ffe8;
+  --bg:#080c08;--bg2:#0b100b;--bd:#003311;
+}
+*{font-family:var(--font);box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--g1);overflow:hidden}
+/* CRT scanlines */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.065) 2px,rgba(0,0,0,.065) 4px)
+}
+#pf-root{display:flex;flex-direction:column;height:100vh;border:1px solid var(--bd);position:relative}
+/* Toasts */
+#pf-toasts{position:fixed;bottom:16px;right:16px;z-index:10000;display:flex;flex-direction:column;gap:5px;pointer-events:none}
+.toast{padding:7px 13px;border:1px solid;font-size:11px;letter-spacing:.3px;animation:t-in .18s ease;pointer-events:auto}
+@keyframes t-in{from{transform:translateX(14px);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast.ok{color:var(--g1);border-color:var(--g2);background:#010f01}
+.toast.err{color:var(--rd);border-color:var(--rd);background:#1a0000}
+.toast.warn{color:var(--yl);border-color:#554400;background:#0f0f00}
+.toast.info{color:var(--cy);border-color:#003355;background:#00111a}
+/* Scrollbars */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--gd)}
+::-webkit-scrollbar-thumb:hover{background:var(--g3)}
+/* Inputs */
+textarea,input,select{font-family:var(--font);outline:none}
+textarea:focus,input:focus{box-shadow:0 0 0 1px var(--g3) !important}
+/* Buttons */
+button{font-family:var(--font);cursor:pointer;transition:all .12s ease}
+button:active{transform:scale(.97)}
+/* Animated bar fill */
+.bar-fill{transition:width .55s cubic-bezier(.4,0,.2,1)}
+/* Glow classes */
+.glow{text-shadow:0 0 9px rgba(51,255,102,.55)}
+.glow-y{text-shadow:0 0 9px rgba(255,204,0,.55)}
+.glow-c{text-shadow:0 0 9px rgba(0,204,255,.55)}
+/* Loading dots */
+.ldot{display:inline-block;animation:bk .7s step-end infinite}
+.ldot:nth-child(2){animation-delay:.23s}
+.ldot:nth-child(3){animation-delay:.46s}
+@keyframes bk{0%,100%{opacity:1}50%{opacity:.15}}
+/* Cursor blink */
+.cursor{display:inline-block;animation:bk 1s step-end infinite}
+</style>
+</head>
+<body>
+<div id="pf-root"></div>
+<div id="pf-toasts"></div>
+<script>
+(function(){
+'use strict';
+
+// ── Config ────────────────────────────────────────────────────────────────────
+const API='http://localhost:8000';
+const G1='#33ff66',G2='#00cc44',G3='#007722',GD='#004411';
+const YL='#ffcc00',RD='#ff4444',CY='#00ccff',WH='#e8ffe8';
+const BG='#080c08',BG2='#0b100b',BD='#003311';
+const ROOT=document.getElementById('pf-root');
+const TOASTS=document.getElementById('pf-toasts');
+
+// ── Fallback offline data ─────────────────────────────────────────────────────
+const FB_MODELS=[
+  {id:'gpt-4o',name:'GPT-4o',provider:'OpenAI',context:128000,cost_in:5,cost_out:15,format:'ChatML'},
+  {id:'claude-3-5',name:'Claude 3.5 Sonnet',provider:'Anthropic',context:200000,cost_in:3,cost_out:15,format:'XML Tags'},
+  {id:'gemini-15',name:'Gemini 1.5 Pro',provider:'Google',context:1000000,cost_in:1.25,cost_out:5,format:'Gemini Native'},
+  {id:'gpt-35',name:'GPT-3.5 Turbo',provider:'OpenAI',context:16385,cost_in:0.5,cost_out:1.5,format:'ChatML'},
+  {id:'llama3',name:'Llama 3.1 70B',provider:'Meta',context:128000,cost_in:0.9,cost_out:0.9,format:'Llama Template'},
+  {id:'mistral',name:'Mistral Large',provider:'Mistral AI',context:32000,cost_in:4,cost_out:12,format:'Mistral Native'},
+  {id:'deepseek',name:'DeepSeek-V3',provider:'DeepSeek',context:64000,cost_in:0.27,cost_out:1.1,format:'ChatML'},
+];
+const FB_WQ=[
+  {id:'goal',q:'What is the PRIMARY objective of this prompt?',opts:['Generate creative content','Analyze & evaluate data','Answer technical questions','Write/debug code','Summarize information','Transform/convert content','Extract structured data','Build a system persona']},
+  {id:'audience',q:'Who is the TARGET AUDIENCE for the output?',opts:['General public','Software developers','Business executives','Researchers/academics','Students/beginners','Domain experts','Internal team use']},
+  {id:'output_format',q:'What OUTPUT FORMAT is required?',opts:['Free-form prose','Bullet points / list','JSON / structured data','Markdown with headers','Code block','Step-by-step numbered','Table format','Hybrid (prose + structured)']},
+  {id:'tone',q:'What TONE should the response have?',opts:['Professional / formal','Casual / conversational','Academic / scholarly','Creative / expressive','Concise / minimal','Instructional / didactic']},
+  {id:'constraints',q:'Are there KEY CONSTRAINTS to enforce?',opts:['Word/character limit','Avoid specific topics','Must cite sources','Stay in domain only','Language restrictions','Safety/content filters','No constraints needed']},
+  {id:'context_depth',q:'How much CONTEXT should the prompt carry?',opts:['Minimal – just the task','Some background context','Full domain background','Few-shot examples only','Chain-of-thought reasoning','Background + examples']},
+  {id:'examples',q:'Should the prompt include EXAMPLES?',opts:['Yes – 1-2 examples','Yes – 3+ examples (few-shot)','Negative examples only','Input/output pair examples','No examples needed']},
+];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let S={
+  view:'ANALYZE',prompt:'',mode:'TECHNICAL',model:'claude-3-5',
+  scores:null,issues:[],recs:[],history:[],
+  wizardStep:0,wizardAnswers:{},wizardQ:FB_WQ,
+  models:FB_MODELS,apiOnline:false,loading:false,
+};
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+const tok=t=>Math.ceil((t||'').length/4);
+const fmtN=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(0)+'K':String(n);
+const curMdl=()=>S.models.find(m=>m.id===S.model)||FB_MODELS[1];
+const wc=t=>(t||'').trim().split(/\s+/).filter(Boolean).length;
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg,type='info'){
+  const el=document.createElement('div');
+  el.className='toast '+type;
+  el.textContent=msg;
+  TOASTS.appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function apiFetch(path,method='GET',body=null){
+  const o={method,headers:{'Content-Type':'application/json'}};
+  if(body)o.body=JSON.stringify(body);
+  const r=await fetch(API+path,{...o,signal:AbortSignal.timeout(8000)});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+async function initAPI(){
+  try{
+    const [,models,wqData,hist]=await Promise.all([
+      apiFetch('/health'),
+      apiFetch('/models'),
+      apiFetch('/wizard/questions'),
+      apiFetch('/history'),
+    ]);
+    S.apiOnline=true;
+    S.models=models;
+    S.wizardQ=wqData.questions||FB_WQ;
+    S.history=hist||[];
+    render();
+    toast('API connected — enhanced mode active','ok');
+  }catch{
+    S.apiOnline=false;
+    render();
+  }
+}
+
+// ── Offline scoring ───────────────────────────────────────────────────────────
+function scoreLocal(text,mode){
+  if(!text?.trim())return null;
+  const words=text.trim().split(/\s+/),wc_=words.length;
+  const acts=(text.match(/\b(create|write|generate|analyze|explain|summarize|list|compare|describe|identify|implement|design|build|evaluate|review|translate|convert|extract|provide|suggest)\b/gi)||[]).length;
+  const ctxH=(text.match(/\b(context|background|you are|acting as|role|assume|given|based on|purpose|goal|objective|your task)\b/gi)||[]).length;
+  const fmtH=(text.match(/\b(format|json|markdown|list|bullet|numbered|table|paragraph|output|response)\b/gi)||[]).length;
+  const hasEx=/(example|e\.g\.|for instance|input:|output:|sample)/i.test(text);
+  const conH=(text.match(/\b(only|limit|max|minimum|do not|don't|avoid|must not|strictly|ensure|required|never|always)\b/gi)||[]).length;
+  const clarity=Math.min(100,Math.max(15,100-Math.abs(wc_-60)*.7-(wc_<5?50:0)));
+  const spec=Math.min(100,20+acts*18+(wc_>15?15:0)+(wc_>40?10:0));
+  const ctx=Math.min(100,15+ctxH*22+(hasEx?28:0)+(wc_>50?15:0));
+  const fmt=Math.min(100,15+fmtH*28+(text.includes('```')||text.includes('###')?20:0));
+  let mAl=40;
+  if(mode==='CREATIVE'){const m=(text.match(/\b(story|creative|imagine|narrative|character|scene|poem|fiction|voice|style|tone|vivid)\b/gi)||[]).length;mAl=Math.min(100,30+m*22);}
+  else if(mode==='TECHNICAL'){const m=(text.match(/\b(code|function|algorithm|implement|debug|optimize|api|database|system|architecture|performance)\b/gi)||[]).length;mAl=Math.min(100,30+m*22);}
+  else{const m=(text.match(/\b(you are|act as|your role|persona|instructions|constraints|rules|always|never|must|assistant)\b/gi)||[]).length;mAl=Math.min(100,30+m*22);}
+  const t=tok(text),tE=t<5?10:t<20?55:t<200?92:t<500?75:t<1000?58:38;
+  const con=Math.min(100,20+conH*22);
+  const ov=Math.round((clarity+spec+ctx+fmt+mAl+tE+con)/7);
+  return{overall:ov,clarity:Math.round(clarity),specificity:Math.round(spec),context:Math.round(ctx),format:Math.round(fmt),mode_alignment:Math.round(mAl),token_efficiency:Math.round(tE),constraints:Math.round(con),grade:ov>=85?'A':ov>=70?'B':ov>=55?'C':ov>=40?'D':'F',label:ov>=85?'EXCELLENT':ov>=70?'GOOD':ov>=55?'FAIR':ov>=40?'POOR':'CRITICAL'};
+}
+
+function issuesLocal(text,mode){
+  if(!text?.trim())return[];
+  const is=[],wc_=text.trim().split(/\s+/).length;
+  if(wc_<5)is.push({t:'ERR',m:'Prompt too short — insufficient context for model inference'});
+  if(wc_>800)is.push({t:'WARN',m:'Prompt exceeds 800 words — consider chunking into sub-prompts'});
+  if(!/\b(create|write|generate|analyze|explain|summarize|list|compare|describe|identify|implement|build|evaluate|provide)\b/i.test(text))is.push({t:'WARN',m:'No clear action verb — model lacks explicit task directive'});
+  if(!/\b(format|output|json|markdown|list|bullet|table|paragraph|step)\b/i.test(text))is.push({t:'INFO',m:'No output format specified — ambiguous structure may reduce quality'});
+  if(mode==='SYSTEM'&&!/\b(you are|act as|your role|persona)\b/i.test(text))is.push({t:'WARN',m:'SYSTEM mode: missing persona definition (e.g., "You are a...")'});
+  if(!/\b(example|e\.g\.|for instance|input:|output:)\b/i.test(text))is.push({t:'INFO',m:'No examples detected — few-shot examples improve fidelity +15-30%'});
+  if(!/\b(only|limit|avoid|do not|must|ensure|strictly)\b/i.test(text))is.push({t:'INFO',m:'No constraints defined — open-ended prompts risk scope drift'});
+  if(/\b(please|kindly|could you)\b/i.test(text))is.push({t:'INFO',m:'Politeness markers add tokens without improving model outputs'});
+  if(wc_>5&&!is.length)is.push({t:'OK',m:'Format structure looks clean — no critical issues detected'});
+  return is;
+}
+
+function normalizeIssues(issues){
+  return issues.map(i=>({t:i.type==='ERROR'?'ERR':i.type,m:i.message||i.m||''}));
+}
+
+// ── DOM helpers ───────────────────────────────────────────────────────────────
+function h(tag,props,ch){
+  const el=document.createElement(tag);
+  if(props)for(const k of Object.keys(props)){
+    if(k==='style'&&typeof props[k]==='object')Object.assign(el.style,props[k]);
+    else if(k.startsWith('on'))el.addEventListener(k.slice(2).toLowerCase(),props[k]);
+    else el[k]=props[k];
+  }
+  if(typeof ch==='string')el.textContent=ch;
+  else if(Array.isArray(ch))ch.forEach(c=>{if(c!=null)el.appendChild(typeof c==='string'?document.createTextNode(c):c);});
+  return el;
+}
+function div(style,ch){
+  const el=document.createElement('div');
+  if(style)Object.assign(el.style,style);
+  if(typeof ch==='string')el.textContent=ch;
+  else if(Array.isArray(ch))ch.forEach(c=>{if(c!=null)el.appendChild(typeof c==='string'?document.createTextNode(c):c);});
+  return el;
+}
+function span(style,text){const el=document.createElement('span');if(style)Object.assign(el.style,style);el.textContent=text;return el;}
+
+function btn(label,onClick,active,color){
+  const c=color||G2,b=document.createElement('button');
+  b.textContent=label;
+  Object.assign(b.style,{background:active?c:'transparent',color:active?BG:c,border:`1px solid ${c}`,padding:'3px 10px',fontSize:11,marginRight:4,marginBottom:3,fontWeight:active?600:400,letterSpacing:'.3px'});
+  b.addEventListener('click',onClick);
+  b.addEventListener('mouseenter',()=>{if(!active){b.style.background=c;b.style.color=BG;b.style.boxShadow=`0 0 6px ${c}40`;}});
+  b.addEventListener('mouseleave',()=>{if(!active){b.style.background='transparent';b.style.color=c;b.style.boxShadow='none';}});
+  return b;
+}
+
+function barViz(val,maxW,fillColor){
+  const wrap=div({display:'inline-flex',alignItems:'center',gap:6});
+  const track=div({width:maxW+'px',height:7,background:GD,border:`1px solid ${BD}`,position:'relative',overflow:'hidden'});
+  const fill=div({position:'absolute',left:0,top:0,width:'0px',height:'100%',background:fillColor||G2});
+  fill.className='bar-fill';
+  track.appendChild(fill);
+  requestAnimationFrame(()=>fill.style.width=Math.round((val/100)*maxW)+'px');
+  wrap.appendChild(track);
+  wrap.appendChild(span({color:fillColor||G2,fontSize:11,width:'34px'},val+'%'));
+  return wrap;
+}
+
+function sectionHead(title,sub){
+  const w=div({marginBottom:12,paddingBottom:8,borderBottom:`1px solid ${GD}`});
+  const t=document.createElement('div');
+  t.className='glow';
+  Object.assign(t.style,{color:G1,fontSize:14,fontWeight:700,marginBottom:3,letterSpacing:'.5px'});
+  t.textContent='► '+title;
+  w.appendChild(t);
+  if(sub)w.appendChild(span({color:G3,fontSize:9,letterSpacing:'.3px'},sub));
+  return w;
+}
+
+// ── Main render ───────────────────────────────────────────────────────────────
+function render(){
+  ROOT.innerHTML='';
+  ROOT.appendChild(buildHeader());
+  const body=div({display:'flex',flex:'1',minHeight:0,overflow:'hidden'});
+  body.appendChild(buildSideNav());
+  const main=div({flex:'1',padding:'10px 14px',overflowY:'auto',overflowX:'hidden',maxHeight:'calc(100vh - 70px)'});
+  main.appendChild(S.loading?buildLoading():buildView());
+  body.appendChild(main);
+  ROOT.appendChild(body);
+  ROOT.appendChild(buildStatusBar());
+}
+
+function buildLoading(){
+  const c=div({display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'200px',gap:12});
+  const dots=div({color:G2,fontSize:16,letterSpacing:5});
+  dots.innerHTML='<span class="ldot">▪</span><span class="ldot">▪</span><span class="ldot">▪</span>';
+  c.appendChild(dots);
+  c.appendChild(span({color:GD,fontSize:10,letterSpacing:'.5px'},'PROCESSING REQUEST'));
+  return c;
+}
+
+// ── Header ────────────────────────────────────────────────────────────────────
+function buildHeader(){
+  const bar=div({background:'#010e01',borderBottom:`1px solid ${BD}`,padding:'6px 12px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,height:36});
+  const left=div({display:'flex',alignItems:'center',gap:10});
+  const title=document.createElement('span');
+  title.className='glow';
+  Object.assign(title.style,{color:G1,fontSize:14,fontWeight:700,letterSpacing:1.5});
+  title.textContent='◈ Prompt_Studio';
+  left.appendChild(title);
+  left.appendChild(span({color:GD,fontSize:10,letterSpacing:'.5px'},'v1.0'));
+  left.appendChild(span({color:BD,fontSize:10},'│'));
+  const modeEl=document.createElement('span');
+  modeEl.className='glow-y';
+  Object.assign(modeEl.style,{color:YL,fontSize:10,letterSpacing:'.3px'});
+  modeEl.textContent='MODE: '+S.mode;
+  left.appendChild(modeEl);
+  left.appendChild(span({color:BD,fontSize:10},'│'));
+  const modelEl=document.createElement('span');
+  modelEl.className='glow-c';
+  Object.assign(modelEl.style,{color:CY,fontSize:10,letterSpacing:'.3px'});
+  modelEl.textContent='MODEL: '+curMdl().name;
+  left.appendChild(modelEl);
+  bar.appendChild(left);
+
+  const right=div({display:'flex',alignItems:'center',gap:8});
+  const t=tok(S.prompt),m=curMdl();
+  const pct=(t/m.context*100).toFixed(1);
+  const tc=t>m.context*.8?RD:t>m.context*.5?YL:G2;
+  right.appendChild(span({color:tc,fontSize:10},'TOKENS: '+t+' / '+fmtN(m.context)+' ('+pct+'%)'));
+  right.appendChild(span({color:BD,fontSize:10},'│'));
+  const apiEl=document.createElement('span');
+  Object.assign(apiEl.style,{color:S.apiOnline?G2:GD,fontSize:10,letterSpacing:'.3px'});
+  apiEl.textContent='API: '+(S.apiOnline?'● LIVE':'○ LOCAL');
+  right.appendChild(apiEl);
+  bar.appendChild(right);
+  return bar;
+}
+
+// ── Side nav ──────────────────────────────────────────────────────────────────
+function buildSideNav(){
+  const nav=div({width:134,borderRight:`1px solid ${BD}`,padding:'10px 0',flexShrink:0,background:BG2});
+  nav.appendChild(div({color:GD,fontSize:9,padding:'0 10px 6px',borderBottom:`1px solid ${GD}`,marginBottom:8,letterSpacing:'.5px'},'── NAVIGATION ──'));
+  ['ANALYZE','SCORE','TOKENS','CONTEXT','MODELS','WIZARD','HISTORY'].forEach(v=>{
+    const active=S.view===v;
+    const item=div({padding:'5px 10px',cursor:'pointer',color:active?G1:G3,background:active?'#011a01':'transparent',borderLeft:active?`2px solid ${G1}`:'2px solid transparent',fontSize:11,transition:'all .1s',letterSpacing:'.3px'});
+    item.textContent=(active?'▶ ':'  ')+'['+v+']';
+    item.addEventListener('click',()=>{S.view=v;render();});
+    item.addEventListener('mouseenter',()=>{if(!active){item.style.color=G2;item.style.background='#010f01';}});
+    item.addEventListener('mouseleave',()=>{if(!active){item.style.color=G3;item.style.background='transparent';}});
+    nav.appendChild(item);
+  });
+  nav.appendChild(div({borderTop:`1px solid ${GD}`,margin:'10px 0 6px'}));
+  const modeWrap=div({padding:'0 10px'});
+  modeWrap.appendChild(div({color:GD,fontSize:9,marginBottom:5,letterSpacing:'.5px'},'── MODES ──'));
+  ['CREATIVE','TECHNICAL','SYSTEM'].forEach(m=>{
+    const active=S.mode===m;
+    const mb=div({padding:'3px 4px',cursor:'pointer',color:active?YL:G3,background:active?'#1a1100':'transparent',fontSize:10,marginBottom:2,letterSpacing:'.2px'});
+    mb.textContent=(active?'● ':'○ ')+m;
+    mb.addEventListener('click',()=>{S.mode=m;render();});
+    mb.addEventListener('mouseenter',()=>{if(!active)mb.style.color=G2;});
+    mb.addEventListener('mouseleave',()=>{if(!active)mb.style.color=G3;});
+    modeWrap.appendChild(mb);
+  });
+  nav.appendChild(modeWrap);
+  return nav;
+}
+
+// ── View router ───────────────────────────────────────────────────────────────
+function buildView(){
+  const c=div({});
+  ({ANALYZE:buildAnalyze,SCORE:buildScore,TOKENS:buildTokens,CONTEXT:buildContext,MODELS:buildModels,WIZARD:buildWizard,HISTORY:buildHistory}[S.view]||buildAnalyze)(c);
+  return c;
+}
+
+// ── ANALYZE ───────────────────────────────────────────────────────────────────
+function buildAnalyze(c){
+  c.appendChild(sectionHead('PROMPT ANALYZER','Validate format · detect issues · optimize & copy'));
+
+  const topRow=div({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4});
+  topRow.appendChild(span({color:G3,fontSize:10,letterSpacing:'.3px'},'PROMPT INPUT ▶'));
+  const info=document.createElement('span');
+  Object.assign(info.style,{color:GD,fontSize:9});
+  const updateInfo=t=>{info.textContent=tok(t)+' tokens  ·  '+t.length+' chars  ·  '+wc(t)+' words';};
+  updateInfo(S.prompt);
+  topRow.appendChild(info);
+  c.appendChild(topRow);
+
+  const ta=document.createElement('textarea');
+  Object.assign(ta.style,{width:'100%',background:'#030803',color:WH,border:`1px solid ${BD}`,padding:'9px 10px',fontSize:11,resize:'vertical',minHeight:110,lineHeight:'1.55',letterSpacing:'.2px',marginBottom:8});
+  ta.placeholder='Enter your prompt here... or use [→ WIZARD] to build one adaptively';
+  ta.value=S.prompt;
+  ta.addEventListener('input',()=>{
+    S.prompt=ta.value;
+    updateInfo(ta.value);
+    if(ta.value.trim()){S.scores=scoreLocal(ta.value,S.mode);S.issues=issuesLocal(ta.value,S.mode);}
+    else{S.scores=null;S.issues=[];}
+    reRenderIssues(issuePanel);
+    reRenderPreview(previewPanel);
+  });
+  c.appendChild(ta);
+
+  // Action buttons
+  const btnRow=div({display:'flex',flexWrap:'wrap',gap:2,marginBottom:10});
+
+  btnRow.appendChild(btn('[ANALYZE]',async()=>{
+    if(!S.prompt.trim()){toast('Enter a prompt first','warn');return;}
+    S.loading=true;render();
+    try{
+      if(S.apiOnline){
+        const [data,sc]=await Promise.all([
+          apiFetch('/analyze','POST',{prompt:S.prompt,mode:S.mode,model_id:S.model}),
+          apiFetch('/score','POST',{prompt:S.prompt,mode:S.mode}),
+        ]);
+        S.scores=data.scores;
+        S.issues=normalizeIssues(data.issues);
+        S.recs=sc.recommendations||[];
+      }else{
+        S.scores=scoreLocal(S.prompt,S.mode);
+        S.issues=issuesLocal(S.prompt,S.mode);
+        S.recs=[];
+      }
+      const entry={prompt_preview:S.prompt.slice(0,80)+(S.prompt.length>80?'...':''),mode:S.mode,model_id:S.model,score:S.scores?.overall};
+      if(S.apiOnline){
+        try{const saved=await apiFetch('/history','POST',entry);S.history=[saved,...S.history.slice(0,9)];}catch{}
+      }else{
+        S.history=[{ts:Date.now(),...entry,id:Math.random().toString(36).slice(2,8)},...S.history.slice(0,9)];
+      }
+      S.view='SCORE';
+    }catch(e){toast('Analysis error: '+e.message,'err');}
+    finally{S.loading=false;render();}
+  },false,G1));
+
+  btnRow.appendChild(btn('[OPTIMIZE]',async()=>{
+    if(!S.prompt.trim()){toast('Enter a prompt first','warn');return;}
+    S.loading=true;render();
+    try{
+      if(S.apiOnline){
+        const r=await apiFetch('/optimize','POST',{prompt:S.prompt,mode:S.mode});
+        S.prompt=r.optimized_prompt;
+        const delta=r.score_delta>0?'+'+r.score_delta:String(r.score_delta||0);
+        toast('Optimized · score delta: '+delta+' pts · '+r.changes_applied.length+' change(s)','ok');
+      }else{
+        let out=S.prompt.trim(),ch=[];
+        if(S.mode==='SYSTEM'&&!/you are|act as/i.test(out)){out='You are an expert AI assistant.\n\n'+out;ch.push('persona added');}
+        if(!/format|output/i.test(out)){out+='\n\nFormat your response clearly with proper structure.';ch.push('format spec added');}
+        if(!/example|e\.g\./i.test(out)){out+='\nInclude a concrete example to illustrate.';ch.push('example added');}
+        if(!/only|avoid|do not|must|ensure/i.test(out)){out+='\nEnsure accuracy and avoid speculation.';ch.push('constraints added');}
+        S.prompt=out;
+        toast('Applied: '+(ch.join(', ')||'prompt already well-formed'),'ok');
+      }
+      S.scores=scoreLocal(S.prompt,S.mode);S.issues=issuesLocal(S.prompt,S.mode);
+    }catch(e){toast('Optimize failed: '+e.message,'err');}
+    finally{S.loading=false;render();}
+  },false,CY));
+
+  btnRow.appendChild(btn('[COMPRESS]',async()=>{
+    if(!S.prompt.trim()){toast('Enter a prompt first','warn');return;}
+    if(S.apiOnline){
+      try{
+        const r=await apiFetch('/prompt/compress','POST',{prompt:S.prompt,mode:S.mode});
+        const prev=S.prompt;S.prompt=r.compressed;
+        toast('-'+r.tokens_saved+' tokens ('+r.savings_pct+'% savings)','info');
+        S.scores=scoreLocal(S.prompt,S.mode);S.issues=issuesLocal(S.prompt,S.mode);
+        render();
+      }catch(e){toast('Compress failed','err');}
+    }else{
+      const fillers=[/\bplease\b/gi,/\bkindly\b/gi,/\bcould you\b/gi,/\bcan you\b/gi,/\bjust\b/gi,/\bbasically\b/gi];
+      let out=S.prompt;fillers.forEach(f=>out=out.replace(f,''));
+      out=out.replace(/  +/g,' ').trim();
+      const saved=tok(S.prompt)-tok(out);
+      S.prompt=out;S.scores=scoreLocal(out,S.mode);S.issues=issuesLocal(out,S.mode);
+      toast('Compressed: -'+saved+' tokens','info');
+      render();
+    }
+  },false,YL));
+
+  btnRow.appendChild(btn('[COPY]',async()=>{
+    await navigator.clipboard.writeText(S.prompt).catch(()=>{});
+    toast('Copied to clipboard','ok');
+  },false,YL));
+
+  btnRow.appendChild(btn('[CLEAR]',()=>{
+    S.prompt='';S.scores=null;S.issues=[];
+    reRenderIssues(issuePanel);reRenderPreview(previewPanel);
+    updateInfo('');ta.value='';
+  },false,RD));
+
+  btnRow.appendChild(btn('[→ WIZARD]',()=>{S.view='WIZARD';S.wizardStep=0;S.wizardAnswers={};render();},false,G3));
+  c.appendChild(btnRow);
+
+  const issuePanel=div({marginBottom:10});
+  reRenderIssues(issuePanel);
+  c.appendChild(issuePanel);
+
+  const previewPanel=div({});
+  reRenderPreview(previewPanel);
+  c.appendChild(previewPanel);
+}
+
+function reRenderIssues(panel){
+  panel.innerHTML='';
+  if(!S.issues?.length){
+    if(!S.prompt)panel.appendChild(span({color:GD,fontSize:10,display:'block',padding:'4px 0'},'── Enter a prompt above to see validation results ──'));
+    return;
+  }
+  panel.appendChild(span({color:G3,fontSize:10,display:'block',marginBottom:5,letterSpacing:'.3px'},'DIAGNOSTIC OUTPUT:'));
+  S.issues.forEach(iss=>{
+    const c_=iss.t==='ERR'?RD:iss.t==='WARN'?YL:iss.t==='OK'?G1:G3;
+    const prefix={'ERR':'[FAIL] ','WARN':'[WARN] ','OK':'[ OK ] ','INFO':'[INFO] '}[iss.t]||'[INFO] ';
+    const row=div({display:'flex',gap:6,alignItems:'flex-start',marginBottom:3});
+    row.appendChild(span({color:c_,fontSize:10,flexShrink:0,fontWeight:600},prefix));
+    row.appendChild(span({color:iss.t==='OK'?G2:WH,fontSize:10,lineHeight:'1.45'},iss.m));
+    panel.appendChild(row);
+  });
+}
+
+function reRenderPreview(panel){
+  panel.innerHTML='';
+  const m=curMdl();
+  if(!S.prompt)return;
+  const header=div({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4});
+  header.appendChild(span({color:G3,fontSize:9,letterSpacing:'.3px'},'FORMAT PREVIEW → '+m.name.toUpperCase()));
+  header.appendChild(span({color:GD,fontSize:9},m.format));
+  panel.appendChild(header);
+  const pre=div({background:'#030803',border:`1px solid ${BD}`,padding:'8px 10px',fontSize:10,color:WH,whiteSpace:'pre-wrap',maxHeight:100,overflowY:'auto',lineHeight:'1.5',letterSpacing:'.2px'});
+  const trunc=S.prompt.slice(0,200)+(S.prompt.length>200?'\n…':'');
+  let fmt='';
+  if(m.format==='XML Tags'){fmt=`<prompt>\n  <mode>${S.mode.toLowerCase()}</mode>\n  <content>\n    ${trunc.replace(/\n/g,'\n    ')}\n  </content>\n</prompt>`;}
+  else if(m.format==='Llama Template'){fmt=`[INST] <<SYS>>\nMode: ${S.mode}\n<</SYS>>\n\n${trunc}\n[/INST]`;}
+  else{fmt=`{"role":"${S.mode==='SYSTEM'?'system':'user'}","content":"${trunc.replace(/"/g,'\\"').replace(/\n/g,'\\n')}"}`;}
+  pre.textContent=fmt;
+  panel.appendChild(pre);
+}
+
+// ── SCORE ─────────────────────────────────────────────────────────────────────
+function buildScore(c){
+  c.appendChild(sectionHead('PROMPT SCORER','Multi-dimensional quality analysis · 7 dimensions · letter grade'));
+  if(!S.scores||!S.prompt.trim()){
+    c.appendChild(div({color:G3,fontSize:11,padding:'20px 0',textAlign:'center'},'── No prompt analyzed. Enter a prompt in [ANALYZE] first ──'));
+    c.appendChild(div({marginTop:8},[btn('[→ ANALYZE]',()=>{S.view='ANALYZE';render();},false,G2)]));
+    return;
+  }
+  const s=S.scores,oc=s.overall>=75?G1:s.overall>=50?YL:RD;
+
+  const overall=div({display:'flex',alignItems:'center',gap:16,marginBottom:14,padding:'10px 12px',background:'#010f01',border:`1px solid ${BD}`});
+  const scoreNum=div({textAlign:'center',minWidth:80});
+  scoreNum.appendChild(span({color:GD,fontSize:9,display:'block',marginBottom:2,letterSpacing:'.5px'},'OVERALL SCORE'));
+  const big=document.createElement('div');
+  big.className='glow';
+  Object.assign(big.style,{color:oc,fontSize:30,fontWeight:700,lineHeight:'1.1',letterSpacing:'-1px'});
+  big.textContent=s.overall+'/100';
+  scoreNum.appendChild(big);
+  scoreNum.appendChild(span({color:oc,fontSize:9,display:'block',marginTop:2},'GRADE '+(s.grade||'—')+' · '+(s.label||'—')));
+  overall.appendChild(scoreNum);
+  overall.appendChild(div({width:1,background:BD,alignSelf:'stretch',margin:'0 4px'}));
+
+  const tips=div({flex:1});
+  tips.appendChild(span({color:G3,fontSize:9,display:'block',marginBottom:6,letterSpacing:'.3px'},'TOP RECOMMENDATIONS:'));
+  const recs=S.recs.length?S.recs:localRecs(s);
+  recs.slice(0,3).forEach(r=>{
+    const row=div({fontSize:10,color:WH,marginBottom:4,paddingLeft:6,borderLeft:`2px solid ${GD}`,lineHeight:'1.4'});
+    row.textContent='→ '+r;
+    tips.appendChild(row);
+  });
+  overall.appendChild(tips);
+  c.appendChild(overall);
+
+  const grid=div({marginBottom:12});
+  grid.appendChild(span({color:G3,fontSize:9,display:'block',marginBottom:7,letterSpacing:'.5px',borderBottom:`1px solid ${GD}`,paddingBottom:5},'DIMENSION ANALYSIS:'));
+  [
+    {k:'clarity',label:'CLARITY          ',desc:'Sentence structure & readability'},
+    {k:'specificity',label:'SPECIFICITY      ',desc:'Action verbs & task precision'},
+    {k:'context',label:'CONTEXT RICHNESS ',desc:'Background, role & examples'},
+    {k:'format',label:'FORMAT SPEC      ',desc:'Output structure definition'},
+    {k:'mode_alignment',label:'MODE ALIGNMENT   ',desc:'Matches mode: '+S.mode},
+    {k:'token_efficiency',label:'TOKEN EFFICIENCY ',desc:'Optimal length vs. complexity'},
+    {k:'constraints',label:'CONSTRAINTS      ',desc:'Boundaries & guardrails'},
+  ].forEach(d=>{
+    const val=s[d.k]||0,fc=val>=75?G1:val>=50?YL:RD;
+    const row=div({display:'flex',alignItems:'center',gap:8,marginBottom:7});
+    row.appendChild(span({color:G3,fontSize:10,width:162,flexShrink:0,letterSpacing:'.15px'},d.label));
+    row.appendChild(barViz(val,158,fc));
+    row.appendChild(span({color:GD,fontSize:9,marginLeft:2},d.desc));
+    grid.appendChild(row);
+  });
+  c.appendChild(grid);
+
+  const adv=div({padding:'8px 10px',border:`1px solid ${GD}`,background:'#010f01'});
+  adv.appendChild(span({color:G3,fontSize:9,display:'block',marginBottom:5,letterSpacing:'.3px'},'MODE-SPECIFIC ADVICE ('+S.mode+'):'));
+  modeAdvice(S.mode).forEach(a=>{
+    adv.appendChild(div({color:CY,fontSize:10,marginBottom:3,paddingLeft:2},'  ✦  '+a));
+  });
+  c.appendChild(adv);
+}
+
+function localRecs(s){
+  return [{score:s.context,r:'Add role definition or background context to ground the model'},
+    {score:s.format,r:'Specify output format explicitly (JSON, markdown, bullet list)'},
+    {score:s.constraints,r:'Define constraints: word limits, topics to avoid, required inclusions'},
+    {score:s.specificity,r:'Add a clear action verb (generate, analyze, explain, create)'},
+    {score:s.mode_alignment,r:'Align vocabulary and structure with selected mode: '+S.mode},
+  ].sort((a,b)=>a.score-b.score).slice(0,3).map(x=>x.r);
+}
+function modeAdvice(mode){
+  if(mode==='CREATIVE')return['Use sensory/evocative language to set scene and tone','Define narrative voice (first/third person, protagonist details)','Specify length and pacing (flash fiction vs. multi-scene)'];
+  if(mode==='TECHNICAL')return['Include language/framework constraints (e.g., "in Python 3.11")','Specify error handling and edge cases explicitly','Add performance or complexity requirements if relevant'];
+  return['Begin with "You are a [role] specialized in [domain]"','Define explicit behavioral rules using always/never directives','Specify response format, length, and escalation protocols'];
+}
+
+// ── TOKENS ────────────────────────────────────────────────────────────────────
+function buildTokens(c){
+  c.appendChild(sectionHead('TOKEN COUNTER','Estimate tokens, context window usage, and per-call API cost'));
+  const m=curMdl(),inTok=tok(S.prompt);
+  const estMid=Math.round(inTok*1.8),estMin=Math.round(inTok*.8),estMax=Math.round(inTok*3.5);
+  const ctxPct=inTok/m.context*100,ctxC=ctxPct>80?RD:ctxPct>50?YL:G1;
+
+  const selRow=div({display:'flex',alignItems:'center',gap:8,marginBottom:12});
+  selRow.appendChild(span({color:G3,fontSize:10,letterSpacing:'.3px'},'ACTIVE MODEL:'));
+  const sel=document.createElement('select');
+  Object.assign(sel.style,{background:'#050e05',color:G1,border:`1px solid ${BD}`,fontSize:10,padding:'3px 8px'});
+  S.models.forEach(mm=>{
+    const opt=document.createElement('option');
+    opt.value=mm.id;opt.textContent=mm.name+' ('+fmtN(mm.context)+' ctx)';
+    if(mm.id===S.model)opt.selected=true;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change',()=>{S.model=sel.value;S.view='TOKENS';render();});
+  selRow.appendChild(sel);
+  c.appendChild(selRow);
+
+  const grid=div({display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12});
+  [{label:'INPUT TOKENS',val:inTok,sub:'~'+Math.round(inTok*.75)+' words',c:G1},
+   {label:'EST. OUTPUT (min)',val:estMin,sub:'conservative',c:G2},
+   {label:'EST. OUTPUT (max)',val:estMax,sub:'expansive',c:YL},
+   {label:'CONTEXT USED',val:ctxPct.toFixed(1)+'%',sub:inTok+' of '+fmtN(m.context),c:ctxC},
+  ].forEach(s_=>{
+    const card=div({background:'#010f01',border:`1px solid ${BD}`,padding:'8px 10px'});
+    card.appendChild(span({color:GD,fontSize:9,display:'block',marginBottom:2,letterSpacing:'.5px'},s_.label));
+    const v=document.createElement('div');
+    Object.assign(v.style,{color:s_.c,fontSize:20,fontWeight:700,letterSpacing:'-0.5px',marginBottom:2});
+    v.textContent=String(s_.val);
+    card.appendChild(v);
+    card.appendChild(span({color:G3,fontSize:9},s_.sub));
+    grid.appendChild(card);
+  });
+  c.appendChild(grid);
+
+  const ctxSec=div({marginBottom:12});
+  ctxSec.appendChild(span({color:G3,fontSize:9,display:'block',marginBottom:6,letterSpacing:'.3px'},'CONTEXT WINDOW UTILIZATION:'));
+  const track=div({width:'100%',height:14,background:GD,border:`1px solid ${BD}`,position:'relative',overflow:'hidden'});
+  const fill=div({position:'absolute',left:0,top:0,width:'0px',height:'100%',background:ctxC});
+  fill.className='bar-fill';
+  track.appendChild(fill);
+  requestAnimationFrame(()=>fill.style.width=Math.min(100,ctxPct)+'%');
+  const maxLbl=div({position:'absolute',right:4,top:0,height:'100%',display:'flex',alignItems:'center',fontSize:9,color:BG,fontWeight:600});
+  maxLbl.textContent=fmtN(m.context)+' max';
+  track.appendChild(maxLbl);
+  ctxSec.appendChild(track);
+  const ticks=div({display:'flex',justifyContent:'space-between',marginTop:2});
+  ['0','25%','50%','75%','100%'].forEach(t=>ticks.appendChild(span({color:GD,fontSize:9},t)));
+  ctxSec.appendChild(ticks);
+  if(ctxPct>80)ctxSec.appendChild(div({color:RD,fontSize:10,marginTop:6,padding:'4px 8px',border:`1px solid ${RD}`,background:'#1a0000'},'⚠ CRITICAL: >80% context used — model may truncate output'));
+  else if(ctxPct>50)ctxSec.appendChild(div({color:YL,fontSize:10,marginTop:6,padding:'4px 8px',border:`1px solid #554400`,background:'#0f0f00'},'⚡ WARNING: >50% context used — limited space for response'));
+  c.appendChild(ctxSec);
+
+  const costSec=div({});
+  costSec.appendChild(span({color:G3,fontSize:9,display:'block',marginBottom:6,letterSpacing:'.3px'},'ESTIMATED API COST (per call):'));
+  const ci=m.cost_in/1e6,co=m.cost_out/1e6;
+  const costGrid=div({display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6});
+  [{label:'Input',val:'$'+(inTok*ci).toFixed(6),c:G2},
+   {label:'Output (mid)',val:'$'+(estMid*co).toFixed(6),c:YL},
+   {label:'Total (est.)',val:'$'+((inTok*ci)+(estMid*co)).toFixed(6),c:G1},
+  ].forEach(item=>{
+    const box=div({background:'#010f01',border:`1px solid ${BD}`,padding:'6px 8px'});
+    box.appendChild(span({color:GD,fontSize:9,display:'block',marginBottom:2},item.label));
+    box.appendChild(div({color:item.c,fontSize:13,fontWeight:700},item.val));
+    box.appendChild(span({color:GD,fontSize:9},'@ $'+m.cost_in+'/$'+m.cost_out+'/1M'));
+    costGrid.appendChild(box);
+  });
+  costSec.appendChild(costGrid);
+  costSec.appendChild(span({color:GD,fontSize:9,display:'block',marginTop:6},'Output estimate assumes ×1.8 input length multiplier.'));
+  c.appendChild(costSec);
+}
+
+// ── CONTEXT ───────────────────────────────────────────────────────────────────
+function buildContext(c){
+  c.appendChild(sectionHead('CONTEXT WINDOW MAP','Compare prompt fit across all supported models'));
+  const inTok=tok(S.prompt);
+  c.appendChild(span({color:G3,fontSize:10,display:'block',marginBottom:10},'CURRENT PROMPT: '+inTok+' tokens · '+wc(S.prompt)+' words'));
+  S.models.forEach(m=>{
+    const pct=Math.min(100,inTok/m.context*100),c_=pct>80?RD:pct>50?YL:G1;
+    const fits=inTok<=m.context,active=m.id===S.model;
+    const row=div({marginBottom:8,padding:'7px 10px',background:active?'#001800':'#010f01',border:`1px solid ${active?G2:BD}`,transition:'border-color .1s'});
+    const top=div({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4});
+    const nameEl=document.createElement('span');
+    Object.assign(nameEl.style,{color:active?CY:WH,fontSize:10,fontWeight:active?600:400,letterSpacing:'.3px'});
+    nameEl.textContent=m.name+(active?' ← active':'');
+    top.appendChild(nameEl);
+    top.appendChild(span({color:fits?G2:RD,fontSize:9},fits?'✓ FIT ('+pct.toFixed(1)+'%)':'✗ EXCEEDS LIMIT'));
+    row.appendChild(top);
+    const track=div({width:'100%',height:6,background:GD,position:'relative',overflow:'hidden'});
+    const fill=div({position:'absolute',left:0,top:0,width:'0px',height:'100%',background:c_});
+    fill.className='bar-fill';
+    track.appendChild(fill);
+    requestAnimationFrame(()=>fill.style.width=pct+'%');
+    row.appendChild(track);
+    const details=div({display:'flex',justifyContent:'space-between',marginTop:3});
+    details.appendChild(span({color:GD,fontSize:9},fmtN(m.context)+' ctx limit'));
+    details.appendChild(span({color:GD,fontSize:9},'Remaining: '+fmtN(m.context-inTok)));
+    details.appendChild(span({color:GD,fontSize:9},'$'+m.cost_in+'/$'+m.cost_out+'/1M'));
+    row.appendChild(details);
+    c.appendChild(row);
+  });
+}
+
+// ── MODELS ────────────────────────────────────────────────────────────────────
+function buildModels(c){
+  c.appendChild(sectionHead('MODEL COMPATIBILITY','Cross-model evaluation · format compatibility · switching impact'));
+  if(!S.prompt.trim()){c.appendChild(div({color:G3,fontSize:11,padding:'16px 0'},'── No prompt loaded. Enter a prompt in [ANALYZE] first ──'));return;}
+  c.appendChild(span({color:G3,fontSize:9,display:'block',marginBottom:10,letterSpacing:'.3px'},'CROSS-MODEL EVALUATION MATRIX:'));
+  const inTok=tok(S.prompt),sc=S.scores||scoreLocal(S.prompt,S.mode)||{overall:0};
+  S.models.forEach(m=>{
+    const fits=inTok<=m.context,fmtB=m.format==='XML Tags'&&S.mode==='SYSTEM'?7:0;
+    const compat=Math.round((sc.overall*.6+(85+fmtB)*.4)*(fits?1:.25));
+    const cc=compat>=70?G1:compat>=50?YL:RD,active=m.id===S.model;
+    const card=div({marginBottom:8,padding:'8px 10px',border:`1px solid ${active?G2:BD}`,background:active?'#001800':'#010f01'});
+    const header=div({display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6});
+    const nd=div({});
+    const ne=document.createElement('span');
+    Object.assign(ne.style,{color:active?CY:WH,fontSize:11,fontWeight:600,letterSpacing:'.2px'});
+    ne.textContent=m.name;
+    nd.appendChild(ne);
+    nd.appendChild(span({color:G3,fontSize:9,marginLeft:8},m.provider+' · '+fmtN(m.context)+' ctx · '+m.format));
+    header.appendChild(nd);
+    const sb=document.createElement('div');
+    Object.assign(sb.style,{color:cc,fontSize:14,fontWeight:700,border:`1px solid ${cc}`,padding:'1px 8px',letterSpacing:'-.5px'});
+    sb.textContent=compat+'%';
+    header.appendChild(sb);
+    card.appendChild(header);
+    const metrics=div({display:'flex',gap:16,flexWrap:'wrap'});
+    [{k:'FITS CTX',v:fits?'✓ YES':'✗ NO',c:fits?G1:RD},
+     {k:'FORMAT',v:m.format,c:G2},
+     {k:'COST/CALL',v:'$'+((inTok*m.cost_in/1e6)+(inTok*1.8*m.cost_out/1e6)).toFixed(5),c:YL},
+    ].forEach(item=>{
+      const mi=div({fontSize:9});
+      mi.appendChild(span({color:GD},item.k+'  '));
+      mi.appendChild(span({color:item.c},item.v));
+      metrics.appendChild(mi);
+    });
+    card.appendChild(metrics);
+    if(!fits){
+      card.appendChild(div({marginTop:5,color:RD,fontSize:9,padding:'2px 4px',background:'#1a0000'},'✗ INCOMPATIBLE: Reduce prompt by ~'+(inTok-m.context)+' tokens'));
+    }else if(m.format!==S.models.find(x=>x.id===S.model)?.format){
+      card.appendChild(div({marginTop:5,color:CY,fontSize:9,padding:'2px 4px',background:'#001122'},'⚡ Switching requires format adaptation: '+m.format+' wrapping'));
+    }
+    const useBtn=btn('[USE THIS MODEL]',()=>{S.model=m.id;render();},active,active?G2:G3);
+    Object.assign(useBtn.style,{marginTop:6});
+    card.appendChild(useBtn);
+    c.appendChild(card);
+  });
+}
+
+// ── WIZARD ────────────────────────────────────────────────────────────────────
+function buildWizard(c){
+  c.appendChild(sectionHead('ADAPTIVE WIZARD','Answer guided questions to auto-generate an optimized prompt'));
+  const qs=S.wizardQ,q=qs[S.wizardStep];
+  if(!q)return;
+
+  const prog=div({marginBottom:12});
+  prog.appendChild(span({color:G3,fontSize:10,display:'block',marginBottom:4},'PROGRESS: Step '+(S.wizardStep+1)+' of '+qs.length));
+  const ptrack=div({width:'100%',height:3,background:GD,overflow:'hidden',marginBottom:6});
+  const pfill=div({position:'relative',width:'0px',height:'100%',background:G2});
+  pfill.className='bar-fill';
+  ptrack.appendChild(pfill);
+  requestAnimationFrame(()=>pfill.style.width=((S.wizardStep+1)/qs.length*100)+'%');
+  prog.appendChild(ptrack);
+  qs.forEach((_,i)=>{
+    prog.appendChild(span({color:i<S.wizardStep?G1:i===S.wizardStep?CY:GD,fontSize:10},
+      (i<S.wizardStep?'●':i===S.wizardStep?'◈':'○')+(i<qs.length-1?' ':'')));
+  });
+  c.appendChild(prog);
+
+  const qBox=div({padding:'10px 12px',border:`1px solid ${G2}`,background:'#010f01',marginBottom:12});
+  qBox.appendChild(span({color:GD,fontSize:9,display:'block',marginBottom:4,letterSpacing:'.5px'},'QUESTION '+(S.wizardStep+1)+' OF '+qs.length));
+  qBox.appendChild(div({color:WH,fontSize:12,fontWeight:600,marginBottom:3,lineHeight:'1.4'},q.q));
+  qBox.appendChild(span({color:G3,fontSize:9},'Select an option or enter a custom answer below'));
+  c.appendChild(qBox);
+
+  const opts=div({display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10});
+  q.opts.forEach(opt=>{
+    const ob=div({padding:'7px 10px',border:`1px solid ${BD}`,cursor:'pointer',fontSize:10,color:G2,background:'#010f01',transition:'all .1s',letterSpacing:'.2px',lineHeight:'1.4'});
+    ob.textContent=opt;
+    ob.addEventListener('click',()=>advanceWizard(q.id,opt));
+    ob.addEventListener('mouseenter',()=>{ob.style.background=GD;ob.style.borderColor=G2;ob.style.boxShadow=`0 0 4px ${G3}40`;});
+    ob.addEventListener('mouseleave',()=>{ob.style.background='#010f01';ob.style.borderColor=BD;ob.style.boxShadow='none';});
+    opts.appendChild(ob);
+  });
+  c.appendChild(opts);
+
+  const custRow=div({display:'flex',gap:6,marginBottom:10});
+  const custIn=h('input',{style:{flex:1,background:'#050e05',color:WH,border:`1px solid ${BD}`,padding:'5px 8px',fontSize:10},placeholder:'Custom answer...'});
+  const custBtn=btn('[ENTER]',()=>{if(custIn.value.trim())advanceWizard(q.id,custIn.value.trim());},false,G2);
+  custIn.addEventListener('keydown',e=>{if(e.key==='Enter'&&custIn.value.trim())advanceWizard(q.id,custIn.value.trim());});
+  custRow.appendChild(custIn);custRow.appendChild(custBtn);
+  if(S.wizardStep>0)custRow.appendChild(btn('[← BACK]',()=>{S.wizardStep--;render();},false,G3));
+  c.appendChild(custRow);
+
+  if(Object.keys(S.wizardAnswers).length>0){
+    const ansBox=div({padding:'8px 10px',border:`1px solid ${GD}`,background:'#010f01'});
+    ansBox.appendChild(span({color:G3,fontSize:9,display:'block',marginBottom:4,letterSpacing:'.3px'},'COLLECTED ANSWERS:'));
+    Object.keys(S.wizardAnswers).forEach(k=>{
+      const row=div({fontSize:9,marginBottom:2});
+      row.appendChild(span({color:GD},k.toUpperCase()+':  '));
+      row.appendChild(span({color:G2},S.wizardAnswers[k]));
+      ansBox.appendChild(row);
+    });
+    c.appendChild(ansBox);
+  }
+}
+
+async function advanceWizard(qId,answer){
+  S.wizardAnswers[qId]=answer;
+  if(S.wizardStep<S.wizardQ.length-1){S.wizardStep++;render();return;}
+  S.loading=true;render();
+  try{
+    if(S.apiOnline){
+      const r=await apiFetch('/wizard/generate','POST',{answers:S.wizardAnswers,mode:S.mode});
+      S.prompt=r.generated_prompt;
+      S.scores=r.scores;
+      S.issues=normalizeIssues(r.issues||[]);
+      S.recs=[];
+    }else{
+      const ans=S.wizardAnswers;
+      const goal=ans.goal||'task',aud=ans.audience||'users',fmt=ans.output_format||'clear format',tone=ans.tone||'professional';
+      const constraints=ans.constraints||'',depth=ans.context_depth||'',examples=ans.examples||'';
+      if(S.mode==='SYSTEM'){
+        S.prompt=`You are an expert AI assistant specialized in ${goal.toLowerCase()}.\n\nYour role is to assist ${aud.toLowerCase()} with accurate, well-structured responses.\n\nGuidelines:\n- Maintain a ${tone.toLowerCase()} tone\n- Format responses as ${fmt.toLowerCase()}${constraints&&constraints!=='No constraints needed'?'\n- Strictly enforce: '+constraints.toLowerCase():''}\n- Prioritize clarity and accuracy`;
+      }else if(S.mode==='CREATIVE'){
+        S.prompt=`Write a creative ${goal.toLowerCase()} for ${aud.toLowerCase()}.\n\nStyle requirements:\n- Tone: ${tone.toLowerCase()}\n- Format: ${fmt.toLowerCase()}${constraints&&constraints!=='No constraints needed'?'\n- Constraints: '+constraints.toLowerCase():''}\n${depth.includes('chain')?'\nThink step-by-step before writing. First outline the structure, then execute.':''}\nEnsure the output is engaging, original, and directly serves the audience.`;
+      }else{
+        S.prompt=`${goal.charAt(0).toUpperCase()+goal.slice(1).toLowerCase()} for ${aud.toLowerCase()}.\n\nOutput requirements:\n- Format: ${fmt.toLowerCase()}\n- Tone: ${tone.toLowerCase()}${constraints&&constraints!=='No constraints needed'?'\n- Constraints: '+constraints.toLowerCase():''}\n${depth.includes('chain')?'\nReason step-by-step before providing your final answer.':''}\n${examples.includes('No')?'':'Include '+(examples.includes('3+')?'3+ worked':'one')+' example to demonstrate.\n'}\nBe precise, accurate, and ensure all claims are well-supported.`;
+      }
+      S.scores=scoreLocal(S.prompt,S.mode);
+      S.issues=issuesLocal(S.prompt,S.mode);
+    }
+    S.wizardStep=0;S.wizardAnswers={};S.view='ANALYZE';
+    toast('Prompt generated successfully','ok');
+  }catch(e){toast('Wizard error: '+e.message,'err');}
+  finally{S.loading=false;render();}
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────────────
+function buildHistory(c){
+  c.appendChild(sectionHead('SESSION HISTORY','Recent analysis sessions · click to restore · API-persisted'));
+
+  if(S.apiOnline){
+    const refreshBtn=btn('[↻ REFRESH]',async()=>{
+      try{S.history=await apiFetch('/history');render();toast('History refreshed','ok');}
+      catch{toast('Refresh failed','err');}
+    },false,CY);
+    const row=div({marginBottom:10,display:'flex',alignItems:'center',gap:8});
+    row.appendChild(span({color:G3,fontSize:9},'API-persisted history · survives page reload'));
+    row.appendChild(refreshBtn);
+    c.appendChild(row);
+  }
+
+  if(!S.history.length){
+    c.appendChild(div({color:G3,fontSize:11,padding:'16px 0'},'── No history yet. Analyze a prompt to populate ──'));
+    return;
+  }
+
+  S.history.forEach((h_,i)=>{
+    const ts=new Date(h_.ts||Date.now());
+    const tStr=ts.getHours().toString().padStart(2,'0')+':'+ts.getMinutes().toString().padStart(2,'0')+':'+ts.getSeconds().toString().padStart(2,'0');
+    const sc=h_.score,sc_=sc>=75?G1:sc>=50?YL:RD;
+    const card=div({padding:'8px 10px',border:`1px solid ${BD}`,marginBottom:6,cursor:'pointer',background:'#010f01',transition:'border-color .1s'});
+    card.addEventListener('mouseenter',()=>card.style.borderColor=G3);
+    card.addEventListener('mouseleave',()=>card.style.borderColor=BD);
+    const top=div({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4});
+    top.appendChild(span({color:G3,fontSize:9,letterSpacing:'.2px'},'['+String(i+1).padStart(2,'0')+']  '+tStr+'  '+( h_.mode||'—')+'  '+(h_.model_id||h_.model||'—')));
+    if(sc!=null)top.appendChild(span({color:sc_,fontSize:11,fontWeight:700},sc+'/100'));
+    card.appendChild(top);
+    card.appendChild(div({color:WH,fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:400,letterSpacing:'.15px'},h_.prompt_preview||h_.prompt||'—'));
+    const restoreBtn=btn('[RESTORE]',()=>{
+      S.prompt=h_.prompt_preview||h_.prompt||S.prompt;
+      S.mode=h_.mode||S.mode;S.model=h_.model_id||h_.model||S.model;
+      S.scores=scoreLocal(S.prompt,S.mode);S.issues=issuesLocal(S.prompt,S.mode);
+      S.view='ANALYZE';render();toast('Session restored','ok');
+    },false,G2);
+    Object.assign(restoreBtn.style,{marginTop:5});
+    card.appendChild(restoreBtn);
+    c.appendChild(card);
+  });
+
+  const clearBtn=btn('[CLEAR HISTORY]',async()=>{
+    if(S.apiOnline){try{await apiFetch('/history','DELETE');}catch{}}
+    S.history=[];render();toast('History cleared','warn');
+  },false,RD);
+  Object.assign(clearBtn.style,{marginTop:8});
+  c.appendChild(clearBtn);
+}
+
+// ── STATUS BAR ────────────────────────────────────────────────────────────────
+function buildStatusBar(){
+  const bar=div({background:'#010e01',borderTop:`1px solid ${BD}`,padding:'4px 12px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,height:24});
+  const sl=div({display:'flex',gap:12,alignItems:'center'});
+  sl.appendChild(span({color:S.prompt?G2:G3,fontSize:10},'STATUS: '+(S.prompt?'PROMPT LOADED':'AWAITING INPUT')));
+  sl.appendChild(span({color:BD,fontSize:9},'│'));
+  sl.appendChild(span({color:S.scores?G2:G3,fontSize:10},'SCORE: '+(S.scores?S.scores.overall+'/100':'N/A')));
+  sl.appendChild(span({color:BD,fontSize:9},'│'));
+  const errs=S.issues.filter(x=>x.t==='ERR'||x.t==='WARN').length;
+  sl.appendChild(span({color:errs?YL:G3,fontSize:10},'ISSUES: '+errs+' warn · '+S.issues.filter(x=>x.t==='INFO').length+' info'));
+  bar.appendChild(sl);
+  const sr=div({display:'flex',gap:8,alignItems:'center'});
+  sr.appendChild(span({color:GD,fontSize:9},'HIST: '+S.history.length));
+  sr.appendChild(span({color:BD,fontSize:9},'│'));
+  sr.appendChild(span({color:S.apiOnline?G2:GD,fontSize:9},'API: '+(S.apiOnline?'LIVE':'LOCAL')));
+  sr.appendChild(span({color:BD,fontSize:9},'│'));
+  sr.appendChild(span({color:GD,fontSize:9},'Prompt_Studio v1.0'));
+  bar.appendChild(sr);
+  return bar;
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+render();
+initAPI();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,697 @@
+
+<div id="pf-root" style="background:#0a0e0a;border:1px solid #003311;font-family:'Courier New',monospace;font-size:12px;color:#33ff66;min-height:600px;display:flex;flex-direction:column;user-select:none"></div>
+
+<script>
+(function(){
+const ROOT = document.getElementById('pf-root');
+const G1='#33ff66', G2='#00cc44', G3='#007722', GD='#004411', YL='#ffcc00', RD='#ff4444', CY='#00ccff', WH='#e8ffe8', BG='#0a0e0a', BG2='#0d130d', BD='#003311';
+
+const MODELS=[
+  {id:'gpt-4o',name:'GPT-4o',provider:'OpenAI',ctx:128000,ci:5,co:15,fmt:'ChatML'},
+  {id:'claude-3-5',name:'Claude 3.5 Sonnet',provider:'Anthropic',ctx:200000,ci:3,co:15,fmt:'XML Tags'},
+  {id:'gemini-15',name:'Gemini 1.5 Pro',provider:'Google',ctx:1000000,ci:1.25,co:5,fmt:'Gemini Native'},
+  {id:'gpt-35',name:'GPT-3.5 Turbo',provider:'OpenAI',ctx:16385,ci:0.5,co:1.5,fmt:'ChatML'},
+  {id:'llama3',name:'Llama 3.1 70B',provider:'Meta',ctx:128000,ci:0.9,co:0.9,fmt:'Llama Template'},
+  {id:'mistral',name:'Mistral Large',provider:'Mistral AI',ctx:32000,ci:4,co:12,fmt:'Mistral Native'},
+  {id:'deepseek',name:'DeepSeek-V3',provider:'DeepSeek',ctx:64000,ci:0.27,co:1.1,fmt:'ChatML'},
+];
+
+const WIZARD_Q=[
+  {id:'goal',q:'What is the PRIMARY objective of this prompt?',opts:['Generate creative content','Analyze & evaluate data','Answer technical questions','Write/debug code','Summarize information','Transform/convert content','Extract structured data','Build a system persona']},
+  {id:'audience',q:'Who is the TARGET AUDIENCE for the output?',opts:['General public','Software developers','Business executives','Researchers/academics','Students/beginners','Domain experts','Internal team use']},
+  {id:'output_format',q:'What OUTPUT FORMAT is required?',opts:['Free-form prose','Bullet points / list','JSON / structured data','Markdown with headers','Code block','Step-by-step numbered','Table format','Hybrid (prose + structured)']},
+  {id:'tone',q:'What TONE should the response have?',opts:['Professional / formal','Casual / conversational','Academic / scholarly','Creative / expressive','Concise / minimal','Instructional / didactic']},
+  {id:'constraints',q:'Are there KEY CONSTRAINTS to enforce?',opts:['Word/character limit','Avoid specific topics','Must cite sources','Stay in domain only','Language restrictions','Safety/content filters','No constraints needed']},
+  {id:'context_depth',q:'How much CONTEXT should the prompt carry?',opts:['Minimal – just the task','Some background context','Full domain background','Few-shot examples only','Chain-of-thought reasoning','Background + examples']},
+  {id:'examples',q:'Should the prompt include EXAMPLES?',opts:['Yes – 1-2 examples','Yes – 3+ examples (few-shot)','Negative examples only','Input/output pair examples','No examples needed']},
+];
+
+let state={
+  view:'ANALYZE', prompt:'', mode:'TECHNICAL', model:'claude-3-5',
+  scores:null, issues:[], history:[], cursor:true,
+  wizardStep:0, wizardAnswers:{}, wizardBuilt:false,
+  optimizing:false, copied:false, lastOptTime:0,
+};
+
+function tok(txt){return Math.ceil((txt||'').length/4);}
+function fmtNum(n){return n>=1000000?(n/1000000).toFixed(1)+'M':n>=1000?(n/1000).toFixed(0)+'K':n;}
+
+function scorePrompt(text, mode){
+  if(!text||!text.trim())return null;
+  const words=text.trim().split(/\s+/);const wc=words.length;
+  const actionRe=/\b(create|write|generate|analyze|explain|summarize|list|compare|describe|identify|implement|design|build|evaluate|review|translate|convert|extract|provide|suggest|determine|calculate|predict)\b/gi;
+  const actions=(text.match(actionRe)||[]).length;
+  const contextRe=/\b(context|background|you are|acting as|role|assume|given|based on|purpose|goal|objective|your task|your job)\b/gi;
+  const ctxHits=(text.match(contextRe)||[]).length;
+  const fmtRe=/\b(format|json|markdown|list|bullet|numbered|table|paragraph|sentence|word|character|length|output|response)\b/gi;
+  const fmtHits=(text.match(fmtRe)||[]).length;
+  const exRe=/\b(example|e\.g\.|for instance|such as|input:|output:|sample)\b/gi;
+  const hasEx=(text.match(exRe)||[]).length>0;
+  const conRe=/\b(only|limit|max|minimum|do not|don't|avoid|must not|strictly|ensure|required|never|always)\b/gi;
+  const conHits=(text.match(conRe)||[]).length;
+  const clarity=Math.min(100,Math.max(15,100-Math.abs(wc-60)*0.7-(wc<5?50:0)));
+  const specificity=Math.min(100,20+actions*18+(wc>15?15:0)+(wc>40?10:0));
+  const context=Math.min(100,15+ctxHits*22+(hasEx?28:0)+(wc>50?15:0));
+  const format=Math.min(100,15+fmtHits*28+(text.includes('```')||text.includes('###')?20:0));
+  let modeAl=40;
+  if(mode==='CREATIVE'){const cr=/\b(story|creative|imagine|narrative|character|scene|poem|fiction|voice|style|tone|vivid)\b/gi;modeAl=Math.min(100,30+(text.match(cr)||[]).length*22);}
+  else if(mode==='TECHNICAL'){const tc=/\b(code|function|algorithm|implement|debug|optimize|api|database|system|architecture|performance|complexity)\b/gi;modeAl=Math.min(100,30+(text.match(tc)||[]).length*22);}
+  else if(mode==='SYSTEM'){const sy=/\b(you are|act as|your role|persona|instructions|constraints|rules|always|never|must|assistant)\b/gi;modeAl=Math.min(100,30+(text.match(sy)||[]).length*22);}
+  const t=tok(text);
+  const tokEff=t<5?10:t<20?55:t<200?92:t<500?75:t<1000?58:38;
+  const constraints=Math.min(100,20+conHits*22);
+  const overall=Math.round((clarity+specificity+context+format+modeAl+tokEff+constraints)/7);
+  return{overall,clarity:Math.round(clarity),specificity:Math.round(specificity),context:Math.round(context),format:Math.round(format),mode_alignment:Math.round(modeAl),token_efficiency:Math.round(tokEff),constraints:Math.round(constraints)};
+}
+
+function getIssues(text,mode){
+  if(!text||!text.trim())return[];
+  const issues=[];const wc=text.trim().split(/\s+/).length;
+  if(wc<5)issues.push({t:'ERR',m:'Prompt too short — insufficient context for model inference'});
+  if(wc>800)issues.push({t:'WARN',m:'Prompt exceeds 800 words — consider chunking into sub-prompts'});
+  if(!/\b(create|write|generate|analyze|explain|summarize|list|compare|describe|identify|implement|build|evaluate|provide)\b/i.test(text))
+    issues.push({t:'WARN',m:'No clear action verb — model lacks explicit task directive'});
+  if(!/\b(format|output|json|markdown|list|bullet|table|paragraph|step)\b/i.test(text))
+    issues.push({t:'INFO',m:'No output format specified — ambiguous structure may reduce quality'});
+  if(mode==='SYSTEM'&&!/\b(you are|act as|your role|persona)\b/i.test(text))
+    issues.push({t:'WARN',m:'SYSTEM mode: missing persona definition (e.g., "You are a...")'});
+  if(!/\b(example|e\.g\.|for instance|input:|output:)\b/i.test(text))
+    issues.push({t:'INFO',m:'No examples detected — few-shot examples improve output fidelity +15-30%'});
+  if(!/\b(only|limit|avoid|do not|must|ensure|strictly)\b/i.test(text))
+    issues.push({t:'INFO',m:'No constraints defined — open-ended prompts risk scope drift'});
+  if(/\b(please|kindly|could you)\b/i.test(text))
+    issues.push({t:'INFO',m:'Politeness markers detected — these add tokens without improving outputs'});
+  if(wc>5&&issues.length===0)
+    issues.push({t:'OK',m:'Format structure looks clean — no critical issues detected'});
+  return issues;
+}
+
+function buildFromWizard(ans,mode){
+  const{goal='task',audience='users',output_format='clear format',tone='professional',constraints='',context_depth='',examples=''}=ans;
+  if(mode==='SYSTEM'){
+    return`You are an expert AI assistant specialized in ${goal.toLowerCase()}.
+
+Your role is to assist ${audience.toLowerCase()} by providing accurate, reliable, and well-structured responses.
+
+Behavioral guidelines:
+- Maintain a ${tone.toLowerCase()} tone at all times
+- Format all responses as ${output_format.toLowerCase()}
+${constraints&&constraints!=='No constraints needed'?`- Strictly enforce: ${constraints.toLowerCase()}`:''}
+${context_depth.includes('examples')?`- Always include relevant examples to illustrate your answers`:''}
+- If uncertain, acknowledge limitations and suggest alternatives
+- Prioritize clarity, accuracy, and actionability in every response`;
+  }else if(mode==='CREATIVE'){
+    return`Write a creative ${goal.toLowerCase()} for ${audience.toLowerCase()}.
+
+Style requirements:
+- Tone: ${tone.toLowerCase()}
+- Format: ${output_format.toLowerCase()}
+${constraints&&constraints!=='No constraints needed'?`- Constraints: ${constraints.toLowerCase()}`:''}
+${context_depth.includes('chain')?`\nThink step-by-step before writing. First outline the structure, then execute.`:''}
+${!examples.includes('No')?`\nInclude ${examples.includes('3+')?'multiple (3+)':'one illustrative'} example${examples.includes('pair')?'s as input/output pairs':''} within your response.`:''}
+
+Ensure the output is engaging, original, and directly serves the audience's expectations.`;
+  }else{
+    return`${goal.charAt(0).toUpperCase()+goal.slice(1).toLowerCase()} for ${audience.toLowerCase()}.
+
+Output requirements:
+- Format: ${output_format.toLowerCase()}
+- Tone: ${tone.toLowerCase()}
+${constraints&&constraints!=='No constraints needed'?`- Constraints: ${constraints.toLowerCase()}`:''}
+${context_depth.includes('chain')?`\nReason step-by-step before providing your final answer. Show your reasoning process.`:''}
+${context_depth.includes('background')?`\nProvide sufficient background context before diving into specifics.`:''}
+${!examples.includes('No')?`\nInclude ${examples.includes('3+')?'3+ worked':'one'} example${examples.includes('pair')?'s in input → output format':''} to demonstrate.`:''}
+
+Be precise, accurate, and ensure all claims are well-supported.`;
+  }
+}
+
+function optimizePrompt(text,mode){
+  let out=text.trim();
+  const missing=[];
+  if(mode==='SYSTEM'&&!/\b(you are|act as)\b/i.test(out)){out='You are an expert AI assistant.\n\n'+out;missing.push('persona added');}
+  if(!/\b(format|output)\b/i.test(out)){out+='\n\nFormat your response clearly with proper structure and headings where appropriate.';missing.push('format spec added');}
+  if(!/\b(example|e\.g\.)\b/i.test(out)){out+='\nInclude a concrete example to illustrate your answer.';missing.push('example directive added');}
+  if(!/\b(only|avoid|do not|must|ensure)\b/i.test(out)){out+='\nEnsure accuracy and avoid speculation beyond provided information.';missing.push('constraints added');}
+  return{prompt:out,changes:missing};
+}
+
+function h(tag,props,children){
+  const el=document.createElement(tag);
+  if(props)Object.keys(props).forEach(k=>{
+    if(k==='style'&&typeof props[k]==='object')Object.assign(el.style,props[k]);
+    else if(k.startsWith('on'))el.addEventListener(k.slice(2).toLowerCase(),props[k]);
+    else el[k]=props[k];
+  });
+  if(typeof children==='string')el.textContent=children;
+  else if(Array.isArray(children))children.forEach(c=>{if(c)el.appendChild(typeof c==='string'?document.createTextNode(c):c);});
+  return el;
+}
+function div(style,children){const el=document.createElement('div');Object.assign(el.style,style);if(typeof children==='string')el.textContent=children;else if(Array.isArray(children))children.forEach(c=>{if(c)el.appendChild(typeof c==='string'?document.createTextNode(c):c);});return el;}
+function span(style,text){const el=document.createElement('span');Object.assign(el.style,style);el.textContent=text;return el;}
+function btn(label,onClick,active,color){
+  const b=document.createElement('button');
+  b.textContent=label;
+  Object.assign(b.style,{background:active?color||G2:'transparent',color:active?BG:color||G2,border:`1px solid ${color||G2}`,padding:'3px 10px',cursor:'pointer',fontFamily:'Courier New',fontSize:11,marginRight:4,marginBottom:3,fontWeight:active?'bold':'normal'});
+  b.addEventListener('click',onClick);
+  b.addEventListener('mouseenter',()=>{if(!active){b.style.background=color||G2;b.style.color=BG;}});
+  b.addEventListener('mouseleave',()=>{if(!active){b.style.background='transparent';b.style.color=color||G2;}});
+  return b;
+}
+
+function barViz(val,maxW,fillColor){
+  const w=Math.round((val/100)*maxW);
+  const c=document.createElement('div');
+  Object.assign(c.style,{display:'inline-flex',alignItems:'center',gap:6});
+  const track=document.createElement('div');
+  Object.assign(track.style,{width:maxW+'px',height:8,background:GD,position:'relative',border:`1px solid ${BD}`});
+  const fill=document.createElement('div');
+  Object.assign(fill.style,{width:w+'px',height:'100%',background:fillColor||G2});
+  track.appendChild(fill);
+  const label=span({color:fillColor||G2,fontSize:11,width:'32px'},val+'%');
+  c.appendChild(track);c.appendChild(label);
+  return c;
+}
+
+let renderCount=0;
+function render(){
+  renderCount++;
+  ROOT.innerHTML='';
+  ROOT.appendChild(buildHeader());
+  const body=div({display:'flex',flex:1,minHeight:0});
+  body.appendChild(buildSideNav());
+  const main=div({flex:1,padding:'10px 14px',overflowY:'auto',maxHeight:520});
+  main.appendChild(buildView());
+  body.appendChild(main);
+  ROOT.appendChild(body);
+  ROOT.appendChild(buildStatusBar());
+}
+
+function buildHeader(){
+  const bar=div({background:'#010e01',borderBottom:`1px solid ${BD}`,padding:'6px 12px',display:'flex',alignItems:'center',justifyContent:'space-between'});
+  const left=div({display:'flex',alignItems:'center',gap:12});
+  left.appendChild(span({color:G1,fontSize:13,fontWeight:'bold',letterSpacing:1},'◈ Prompt_Studio'));
+  left.appendChild(span({color:GD,fontSize:11},'v0.9.4-mvp'));
+  left.appendChild(span({color:G3,fontSize:10},'|'));
+  left.appendChild(span({color:YL,fontSize:11},'MODE: '+state.mode));
+  left.appendChild(span({color:G3,fontSize:10},'|'));
+  left.appendChild(span({color:CY,fontSize:11},'MODEL: '+(MODELS.find(m=>m.id===state.model)||MODELS[1]).name));
+  bar.appendChild(left);
+  const right=div({display:'flex',alignItems:'center',gap:8});
+  const t=tok(state.prompt);
+  const mdl=MODELS.find(m=>m.id===state.model)||MODELS[1];
+  const pct=(t/mdl.ctx*100).toFixed(1);
+  const tc=t>mdl.ctx*0.8?RD:t>mdl.ctx*0.5?YL:G2;
+  right.appendChild(span({color:tc,fontSize:10},'TOKENS: '+t+' / '+fmtNum(mdl.ctx)+' ('+pct+'%)'));
+  right.appendChild(span({color:G3,fontSize:10},'|'));
+  right.appendChild(span({color:G3,fontSize:10},'SESSION: pf_'+Math.random().toString(36).slice(2,8).toUpperCase()));
+  bar.appendChild(right);
+  return bar;
+}
+
+function buildSideNav(){
+  const nav=div({width:130,borderRight:`1px solid ${BD}`,padding:'10px 0',flexShrink:0});
+  nav.appendChild(div({color:GD,fontSize:10,padding:'0 10px 6px',borderBottom:`1px solid ${GD}`,marginBottom:8},'NAVIGATION'));
+  const views=['ANALYZE','SCORE','TOKENS','CONTEXT','MODELS','WIZARD','HISTORY'];
+  const icons={'ANALYZE':'⬡','SCORE':'◈','TOKENS':'⬡','CONTEXT':'⬡','MODELS':'⬡','WIZARD':'◈','HISTORY':'⬡'};
+  views.forEach(v=>{
+    const item=div({padding:'5px 10px',cursor:'pointer',color:state.view===v?G1:G3,background:state.view===v?'#011a01':'transparent',borderLeft:state.view===v?`2px solid ${G1}`:'2px solid transparent',fontSize:11,transition:'all 0.1s'});
+    item.textContent=(state.view===v?'> ':' ')+'['+v+']';
+    item.addEventListener('click',()=>{state.view=v;render();});
+    item.addEventListener('mouseenter',()=>{if(state.view!==v){item.style.color=G2;item.style.background='#010f01';}});
+    item.addEventListener('mouseleave',()=>{if(state.view!==v){item.style.color=G3;item.style.background='transparent';}});
+    nav.appendChild(item);
+  });
+  nav.appendChild(div({borderTop:`1px solid ${GD}`,margin:'10px 0 6px',padding:'8px 10px 0'}));
+  const modeDiv=div({padding:'4px 10px'});
+  modeDiv.appendChild(div({color:GD,fontSize:10,marginBottom:4},'── MODES ──'));
+  ['CREATIVE','TECHNICAL','SYSTEM'].forEach(m=>{
+    const mb=div({padding:'3px 6px',cursor:'pointer',color:state.mode===m?YL:G3,background:state.mode===m?'#1a1100':'transparent',fontSize:10,marginBottom:2});
+    mb.textContent=(state.mode===m?'● ':'○ ')+m;
+    mb.addEventListener('click',()=>{state.mode=m;render();});
+    modeDiv.appendChild(mb);
+  });
+  nav.appendChild(modeDiv);
+  return nav;
+}
+
+function buildView(){
+  const c=div({});
+  if(state.view==='ANALYZE')buildAnalyzeView(c);
+  else if(state.view==='SCORE')buildScoreView(c);
+  else if(state.view==='TOKENS')buildTokensView(c);
+  else if(state.view==='CONTEXT')buildContextView(c);
+  else if(state.view==='MODELS')buildModelsView(c);
+  else if(state.view==='WIZARD')buildWizardView(c);
+  else if(state.view==='HISTORY')buildHistoryView(c);
+  return c;
+}
+
+function buildAnalyzeView(c){
+  c.appendChild(sectionHeader('PROMPT ANALYZER','Validate format, detect issues, get improvement suggestions'));
+  // Prompt input
+  const inputWrap=div({marginBottom:10});
+  const topRow=div({display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4});
+  topRow.appendChild(span({color:G3,fontSize:10},'PROMPT INPUT > '));
+  const charInfo=span({color:GD,fontSize:10},tok(state.prompt)+' tokens • '+state.prompt.length+' chars • '+(state.prompt.trim().split(/\s+/).filter(Boolean).length||0)+' words');
+  topRow.appendChild(charInfo);
+  inputWrap.appendChild(topRow);
+  const ta=document.createElement('textarea');
+  Object.assign(ta.style,{width:'100%',background:'#050e05',color:WH,border:`1px solid ${BD}`,padding:'8px',fontFamily:'Courier New',fontSize:11,resize:'vertical',minHeight:100,outline:'none',boxSizing:'border-box'});
+  ta.placeholder='Enter your prompt here... or use [WIZARD] to build one adaptively';
+  ta.value=state.prompt;
+  ta.addEventListener('input',()=>{state.prompt=ta.value;state.scores=scorePrompt(ta.value,state.mode);state.issues=getIssues(ta.value,state.mode);charInfo.textContent=tok(ta.value)+' tokens • '+ta.value.length+' chars • '+(ta.value.trim().split(/\s+/).filter(Boolean).length||0)+' words';reRenderIssuePanel(issuePanel);reRenderPreviewPanel(previewPanel);});
+  inputWrap.appendChild(ta);
+  c.appendChild(inputWrap);
+  // Action buttons
+  const btnRow=div({display:'flex',flexWrap:'wrap',gap:4,marginBottom:10});
+  btnRow.appendChild(btn('[ANALYZE]',()=>{state.scores=scorePrompt(state.prompt,state.mode);state.issues=getIssues(state.prompt,state.mode);state.view='SCORE';const entry={ts:Date.now(),prompt:state.prompt.slice(0,80)+(state.prompt.length>80?'...':''),mode:state.mode,model:state.model,score:state.scores?.overall};state.history=[entry,...state.history.slice(0,9)];render();},false,G1));
+  btnRow.appendChild(btn('[OPTIMIZE]',()=>{
+    if(!state.prompt)return;
+    const res=optimizePrompt(state.prompt,state.mode);
+    ta.value=res.prompt;state.prompt=res.prompt;
+    state.scores=scorePrompt(res.prompt,state.mode);state.issues=getIssues(res.prompt,state.mode);
+    reRenderIssuePanel(issuePanel);reRenderPreviewPanel(previewPanel);
+    const note=div({color:CY,fontSize:10,margin:'4px 0',padding:'4px 8px',background:'#001a2a',border:`1px solid #003355`});
+    note.textContent='✓ Applied: '+res.changes.join(', ');
+    btnRow.appendChild(note);
+    setTimeout(()=>{if(note.parentNode)note.remove();},3000);
+  },false,CY));
+  btnRow.appendChild(btn('[COPY]',async()=>{await navigator.clipboard.writeText(state.prompt).catch(()=>{});const b=btnRow.children[2];b.textContent='[COPIED ✓]';b.style.color=G1;setTimeout(()=>{b.textContent='[COPY]';b.style.color=YL;},2000);},false,YL));
+  btnRow.appendChild(btn('[CLEAR]',()=>{ta.value='';state.prompt='';state.scores=null;state.issues=[];reRenderIssuePanel(issuePanel);reRenderPreviewPanel(previewPanel);},false,RD));
+  btnRow.appendChild(btn('[→ WIZARD]',()=>{state.view='WIZARD';state.wizardStep=0;state.wizardAnswers={};render();},false,G3));
+  c.appendChild(btnRow);
+  // Issues panel
+  const issuePanel=div({marginBottom:10});
+  reRenderIssuePanel(issuePanel);
+  c.appendChild(issuePanel);
+  // Format preview
+  const previewPanel=div({});
+  reRenderPreviewPanel(previewPanel);
+  c.appendChild(previewPanel);
+}
+
+function reRenderIssuePanel(panel){
+  panel.innerHTML='';
+  if(!state.issues||!state.issues.length){
+    if(!state.prompt){
+      panel.appendChild(div({color:GD,fontSize:10,padding:'6px 0'},'── Enter a prompt above to see validation results ──'));
+    }
+    return;
+  }
+  panel.appendChild(span({color:G3,fontSize:10,display:'block',marginBottom:4},'DIAGNOSTIC OUTPUT:'));
+  state.issues.forEach(iss=>{
+    const c_=iss.t==='ERR'?RD:iss.t==='WARN'?YL:iss.t==='OK'?G1:G3;
+    const prefix=iss.t==='ERR'?'[FAIL]':iss.t==='WARN'?'[WARN]':iss.t==='OK'?'[ OK ]':'[INFO]';
+    const row=div({display:'flex',gap:6,alignItems:'flex-start',marginBottom:3});
+    row.appendChild(span({color:c_,fontSize:10,flexShrink:0,fontWeight:'bold'},prefix));
+    row.appendChild(span({color:iss.t==='OK'?G2:WH,fontSize:10},iss.m));
+    panel.appendChild(row);
+  });
+}
+
+function reRenderPreviewPanel(panel){
+  panel.innerHTML='';
+  const mdl=MODELS.find(m=>m.id===state.model)||MODELS[1];
+  if(!state.prompt)return;
+  const header=div({display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4});
+  header.appendChild(span({color:G3,fontSize:10},'FORMAT PREVIEW FOR: '+mdl.name.toUpperCase()));
+  header.appendChild(span({color:GD,fontSize:10},'FORMAT: '+mdl.fmt));
+  panel.appendChild(header);
+  const preview=div({background:'#050e05',border:`1px solid ${BD}`,padding:8,fontSize:10,color:WH,whiteSpace:'pre-wrap',maxHeight:120,overflowY:'auto'});
+  let fmt='';
+  if(mdl.fmt==='XML Tags'){fmt='<prompt>\n  <mode>'+state.mode.toLowerCase()+'</mode>\n  <content>\n    '+state.prompt.slice(0,200).replace(/\n/g,'\n    ')+(state.prompt.length>200?'\n    ...':'')+'\n  </content>\n</prompt>';}
+  else if(mdl.fmt==='Llama Template'){fmt='[INST] <<SYS>>\nMode: '+state.mode+'\n<</SYS>>\n\n'+state.prompt.slice(0,200)+(state.prompt.length>200?'\n...\n[/INST]':'[/INST]');}
+  else{fmt='{"role":"'+(state.mode==='SYSTEM'?'system':'user')+'","content":"'+state.prompt.slice(0,200).replace(/"/g,'\\"')+(state.prompt.length>200?'...":...}'+'"}':'"}');}
+  preview.textContent=fmt;
+  panel.appendChild(preview);
+}
+
+function buildScoreView(c){
+  c.appendChild(sectionHeader('PROMPT SCORER','Multi-dimensional quality analysis with optimization targets'));
+  if(!state.scores||!state.prompt.trim()){
+    const msg=div({color:G3,fontSize:11,padding:'20px 0',textAlign:'center'});
+    msg.textContent='── No prompt loaded. Enter a prompt in [ANALYZE] first ──';
+    c.appendChild(msg);
+    c.appendChild(div({marginTop:10},[ btn('[→ ANALYZE]',()=>{state.view='ANALYZE';render();},false,G2)]));
+    return;
+  }
+  const s=state.scores;
+  const oc=s.overall>=75?G1:s.overall>=50?YL:RD;
+  // Overall score big display
+  const overall=div({display:'flex',alignItems:'center',gap:20,marginBottom:14,padding:'10px 12px',background:'#010f01',border:`1px solid ${BD}`});
+  const scoreNum=div({textAlign:'center'});
+  scoreNum.appendChild(div({color:GD,fontSize:10,marginBottom:2},'OVERALL SCORE'));
+  scoreNum.appendChild(div({color:oc,fontSize:28,fontWeight:'bold',fontFamily:'Courier New'},s.overall+'/100'));
+  const grade=s.overall>=85?'A':s.overall>=70?'B':s.overall>=55?'C':s.overall>=40?'D':'F';
+  scoreNum.appendChild(div({color:oc,fontSize:10},'GRADE: '+grade+' / '+label(s.overall)));
+  overall.appendChild(scoreNum);
+  const divider=div({width:1,background:BD,alignSelf:'stretch',margin:'0 4px'});
+  overall.appendChild(divider);
+  const tips=div({flex:1});
+  tips.appendChild(div({color:G3,fontSize:10,marginBottom:6},'TOP RECOMMENDATIONS:'));
+  const recs=getTopRecs(s);
+  recs.forEach(r=>{
+    const row=div({fontSize:10,color:WH,marginBottom:3});
+    row.textContent='→ '+r;
+    tips.appendChild(row);
+  });
+  overall.appendChild(tips);
+  c.appendChild(overall);
+  // Dimension bars
+  const grid=div({marginBottom:10});
+  grid.appendChild(div({color:G3,fontSize:10,marginBottom:6,borderBottom:`1px solid ${GD}`,paddingBottom:4},'DIMENSION ANALYSIS:'));
+  const dims=[
+    {k:'clarity',label:'CLARITY         ',desc:'Sentence structure & readability'},
+    {k:'specificity',label:'SPECIFICITY     ',desc:'Action verbs & task precision'},
+    {k:'context',label:'CONTEXT RICHNESS',desc:'Background, role & examples'},
+    {k:'format',label:'FORMAT SPEC     ',desc:'Output structure definition'},
+    {k:'mode_alignment',label:'MODE ALIGNMENT  ',desc:'Matches selected mode: '+state.mode},
+    {k:'token_efficiency',label:'TOKEN EFFICIENCY',desc:'Optimal length vs. complexity'},
+    {k:'constraints',label:'CONSTRAINTS     ',desc:'Boundaries & guardrails defined'},
+  ];
+  dims.forEach(d=>{
+    const val=s[d.k];
+    const fc=val>=75?G1:val>=50?YL:RD;
+    const row=div({display:'flex',alignItems:'center',gap:8,marginBottom:7});
+    row.appendChild(span({color:G3,fontSize:10,width:155,flexShrink:0},d.label));
+    const bw=160;
+    const filled=Math.round((val/100)*bw);
+    const track=div({width:bw+'px',height:7,background:GD,border:`1px solid ${BD}`,position:'relative',flexShrink:0});
+    const fill=div({width:filled+'px',height:'100%',background:fc,position:'absolute',top:0,left:0});
+    track.appendChild(fill);
+    row.appendChild(track);
+    row.appendChild(span({color:fc,fontSize:10,width:36},val+'%'));
+    row.appendChild(span({color:GD,fontSize:9},d.desc));
+    grid.appendChild(row);
+  });
+  c.appendChild(grid);
+  // Mode-specific advice
+  const advBox=div({padding:'8px 10px',border:`1px solid ${GD}`,background:'#010f01'});
+  advBox.appendChild(div({color:G3,fontSize:10,marginBottom:5},'MODE-SPECIFIC ADVICE ('+state.mode+'):'));
+  getModeAdvice(state.mode,s).forEach(a=>{
+    advBox.appendChild(div({color:CY,fontSize:10,marginBottom:3},'  ✦  '+a));
+  });
+  c.appendChild(advBox);
+}
+
+function label(n){return n>=85?'EXCELLENT':n>=70?'GOOD':n>=55?'FAIR':n>=40?'POOR':'CRITICAL';}
+
+function getTopRecs(s){
+  const all=[
+    {score:s.context,rec:'Add role definition or background context to ground the model'},
+    {score:s.format,rec:'Specify output format explicitly (JSON, markdown, bullet list, etc.)'},
+    {score:s.constraints,rec:'Define constraints: word limits, topics to avoid, required inclusions'},
+    {score:s.specificity,rec:'Add a clear action verb (generate, analyze, explain, create, etc.)'},
+    {score:s.mode_alignment,rec:'Align vocabulary and structure with selected mode: '+state.mode},
+    {score:s.token_efficiency,rec:s.token_efficiency<50?'Expand prompt with more context':'Trim redundant politeness markers and filler words'},
+  ];
+  return all.sort((a,b)=>a.score-b.score).slice(0,3).map(x=>x.rec);
+}
+
+function getModeAdvice(mode,s){
+  if(mode==='CREATIVE')return['Use sensory and evocative language to set scene and tone','Define narrative voice (first/third person, protagonist details)','Specify length and pacing (short flash fiction vs. multi-scene)'];
+  if(mode==='TECHNICAL')return['Include language/framework constraints (e.g., "in Python 3.11")','Specify error handling and edge cases explicitly','Add performance or complexity requirements if relevant'];
+  return['Begin with "You are a [role] specialized in [domain]"','Define explicit behavioral rules using always/never directives','Specify response format, length, and escalation protocols'];
+}
+
+function buildTokensView(c){
+  c.appendChild(sectionHeader('TOKEN COUNTER','Estimate input/output tokens, context window usage, and API cost'));
+  const mdl=MODELS.find(m=>m.id===state.model)||MODELS[1];
+  const inTok=tok(state.prompt);
+  const estOutMin=Math.round(inTok*0.8);
+  const estOutMax=Math.round(inTok*3.5);
+  const estOutMid=Math.round(inTok*1.8);
+  const ctxPct=(inTok/mdl.ctx*100);
+  const ctxC=ctxPct>80?RD:ctxPct>50?YL:G1;
+  // Model selector
+  const selRow=div({display:'flex',alignItems:'center',gap:8,marginBottom:12});
+  selRow.appendChild(span({color:G3,fontSize:10},'ACTIVE MODEL:'));
+  const sel=document.createElement('select');
+  Object.assign(sel.style,{background:'#050e05',color:G1,border:`1px solid ${BD}`,fontFamily:'Courier New',fontSize:10,padding:'3px 6px'});
+  MODELS.forEach(m=>{
+    const opt=document.createElement('option');
+    opt.value=m.id;opt.textContent=m.name+' ('+fmtNum(m.ctx)+'ctx)';
+    if(m.id===state.model)opt.selected=true;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change',()=>{state.model=sel.value;state.view='TOKENS';render();});
+  selRow.appendChild(sel);
+  c.appendChild(selRow);
+  // Token stats
+  const statsGrid=div({display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12});
+  [
+    {label:'INPUT TOKENS',val:inTok,sub:'~'+inTok+' tokens',c:G1},
+    {label:'EST. OUTPUT (min)',val:estOutMin,sub:'conservative',c:G2},
+    {label:'EST. OUTPUT (max)',val:estOutMax,sub:'expansive mode',c:YL},
+    {label:'CONTEXT USED',val:ctxPct.toFixed(1)+'%',sub:inTok+' of '+fmtNum(mdl.ctx),c:ctxC},
+  ].forEach(s_=>{
+    const card=div({background:'#010f01',border:`1px solid ${BD}`,padding:'8px 10px'});
+    card.appendChild(div({color:GD,fontSize:9,marginBottom:2},s_.label));
+    card.appendChild(div({color:s_.c,fontSize:18,fontWeight:'bold',fontFamily:'Courier New'},String(s_.val)));
+    card.appendChild(div({color:G3,fontSize:9},s_.sub));
+    statsGrid.appendChild(card);
+  });
+  c.appendChild(statsGrid);
+  // Context window bar
+  const ctxSection=div({marginBottom:12});
+  ctxSection.appendChild(span({color:G3,fontSize:10,display:'block',marginBottom:6},'CONTEXT WINDOW UTILIZATION:'));
+  const track=div({width:'100%',height:14,background:GD,border:`1px solid ${BD}`,position:'relative',boxSizing:'border-box'});
+  const fillW=Math.min(100,ctxPct);
+  const fill=div({width:fillW+'%',height:'100%',background:ctxC,position:'absolute',top:0,left:0,transition:'width 0.3s'});
+  const marker=div({position:'absolute',right:0,top:-14,fontSize:9,color:GD,fontFamily:'Courier New',background:BG,padding:'0 2px'});
+  marker.textContent=fmtNum(mdl.ctx)+' max';
+  track.appendChild(fill);track.appendChild(marker);
+  ctxSection.appendChild(track);
+  const ticks=div({display:'flex',justifyContent:'space-between',marginTop:2});
+  ['0%','25%','50%','75%','100%'].forEach(t=>{ticks.appendChild(span({color:GD,fontSize:9},t));});
+  ctxSection.appendChild(ticks);
+  if(ctxPct>80){
+    const warn=div({color:RD,fontSize:10,marginTop:4,padding:'4px 8px',border:`1px solid ${RD}`,background:'#1a0000'});
+    warn.textContent='⚠ CRITICAL: Prompt exceeds 80% of context window — model may truncate output';
+    ctxSection.appendChild(warn);
+  }else if(ctxPct>50){
+    const warn=div({color:YL,fontSize:10,marginTop:4,padding:'4px 8px',border:`1px solid #554400`,background:'#0f0f00'});
+    warn.textContent='⚡ WARNING: Prompt using >50% of context — limited space for response';
+    ctxSection.appendChild(warn);
+  }
+  c.appendChild(ctxSection);
+  // Cost estimate
+  const costSection=div({});
+  costSection.appendChild(span({color:G3,fontSize:10,display:'block',marginBottom:6},'ESTIMATED API COST (per call):'));
+  const costGrid=div({display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,fontSize:10});
+  const ci=mdl.ci/1000000;const co=mdl.co/1000000;
+  [
+    {label:'Input cost',val:'$'+(inTok*ci).toFixed(6),c:G2},
+    {label:'Output cost (est mid)',val:'$'+(estOutMid*co).toFixed(6),c:YL},
+    {label:'Total (est)',val:'$'+((inTok*ci)+(estOutMid*co)).toFixed(6),c:G1},
+  ].forEach(item=>{
+    const box=div({background:'#010f01',border:`1px solid ${BD}`,padding:'6px 8px'});
+    box.appendChild(div({color:GD,fontSize:9},item.label));
+    box.appendChild(div({color:item.c,fontSize:13,fontWeight:'bold'},item.val));
+    box.appendChild(div({color:GD,fontSize:9},'@ $'+mdl.ci+'/$'+mdl.co+'/1M'));
+    costGrid.appendChild(box);
+  });
+  costSection.appendChild(costGrid);
+  const note=div({color:GD,fontSize:9,marginTop:6});note.textContent='Note: Output token estimate assumes 1.8x input length. Actual cost varies by response.';
+  costSection.appendChild(note);
+  c.appendChild(costSection);
+}
+
+function buildContextView(c){
+  c.appendChild(sectionHeader('CONTEXT WINDOW MAP','Compare prompt fit across all supported models'));
+  const inTok=tok(state.prompt);
+  c.appendChild(div({color:G3,fontSize:10,marginBottom:10},'CURRENT PROMPT: '+inTok+' tokens'));
+  MODELS.forEach(m=>{
+    const pct=Math.min(100,(inTok/m.ctx)*100);
+    const c_=pct>80?RD:pct>50?YL:G1;
+    const fits=inTok<=m.ctx;
+    const row=div({marginBottom:8,padding:'6px 10px',background:'#010f01',border:`1px solid ${BD}`});
+    const topR=div({display:'flex',justifyContent:'space-between',marginBottom:4});
+    const nameSpan=span({color:m.id===state.model?CY:WH,fontSize:10,fontWeight:m.id===state.model?'bold':'normal'},m.name+(m.id===state.model?' ← active':''));
+    const statusSpan=span({color:fits?G2:RD,fontSize:9},fits?'✓ FIT ('+pct.toFixed(1)+'% used)':'✗ EXCEEDS LIMIT');
+    topR.appendChild(nameSpan);topR.appendChild(statusSpan);
+    row.appendChild(topR);
+    const track=div({width:'100%',height:6,background:GD,position:'relative'});
+    const fill=div({width:pct+'%',height:'100%',background:c_,position:'absolute',top:0,left:0});
+    track.appendChild(fill);
+    row.appendChild(track);
+    const details=div({display:'flex',justifyContent:'space-between',marginTop:3});
+    details.appendChild(span({color:GD,fontSize:9},fmtNum(m.ctx)+' context'));
+    details.appendChild(span({color:GD,fontSize:9},'Remaining: '+fmtNum(m.ctx-inTok)+' tokens'));
+    details.appendChild(span({color:GD,fontSize:9},'$'+m.ci+'/$'+m.co+'/1M'));
+    row.appendChild(details);
+    c.appendChild(row);
+  });
+}
+
+function buildModelsView(c){
+  c.appendChild(sectionHeader('MODEL COMPATIBILITY','Evaluate prompt format compatibility and switching impact'));
+  if(!state.prompt.trim()){
+    c.appendChild(div({color:G3,fontSize:11,padding:'16px 0'},'── No prompt loaded. Go to [ANALYZE] and enter a prompt ──'));
+    return;
+  }
+  const inTok=tok(state.prompt);
+  c.appendChild(div({color:G3,fontSize:10,marginBottom:10},'CROSS-MODEL EVALUATION MATRIX:'));
+  const scores_=state.scores||scorePrompt(state.prompt,state.mode)||{overall:0,clarity:0,specificity:0};
+  MODELS.forEach(m=>{
+    const fits=inTok<=m.ctx;
+    const fmtScore=m.fmt==='XML Tags'&&state.mode==='SYSTEM'?92:m.fmt==='ChatML'?85:78;
+    const compatScore=Math.round((scores_.overall*0.6+fmtScore*0.4)*(fits?1:0.3));
+    const cc=compatScore>=70?G1:compatScore>=50?YL:RD;
+    const card=div({marginBottom:8,padding:'8px 10px',border:`1px solid ${m.id===state.model?G2:BD}`,background:m.id===state.model?'#001800':'#010f01'});
+    const header=div({display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6});
+    const nameDiv=div({});
+    nameDiv.appendChild(span({color:m.id===state.model?CY:WH,fontSize:11,fontWeight:'bold'},m.name));
+    nameDiv.appendChild(span({color:G3,fontSize:9,marginLeft:8},m.provider+' | '+fmtNum(m.ctx)+' ctx | '+m.fmt));
+    header.appendChild(nameDiv);
+    const scoreBox=div({color:cc,fontSize:14,fontWeight:'bold',fontFamily:'Courier New',border:`1px solid ${cc}`,padding:'1px 8px'});
+    scoreBox.textContent=compatScore+'%';
+    header.appendChild(scoreBox);
+    card.appendChild(header);
+    const metrics=div({display:'flex',gap:16,flexWrap:'wrap'});
+    [{k:'FITS CTX',v:fits?'✓ YES':'✗ NO',c:fits?G1:RD},{k:'FORMAT',v:m.fmt,c:G2},{k:'COST/1K',v:'$'+((inTok*m.ci/1000000)+(inTok*1.8*m.co/1000000)).toFixed(4),c:YL}].forEach(item=>{
+      const mItem=div({fontSize:9});
+      mItem.appendChild(div({color:GD},item.k));
+      mItem.appendChild(div({color:item.c},item.v));
+      metrics.appendChild(mItem);
+    });
+    card.appendChild(metrics);
+    // Format adjustments needed
+    if(m.fmt!==MODELS.find(x=>x.id===state.model)?.fmt){
+      const adj=div({marginTop:5,color:CY,fontSize:9,padding:'2px 4px',background:'#001122'});
+      adj.textContent='⚡ Switching requires format adaptation: '+m.fmt+' wrapping';
+      card.appendChild(adj);
+    }
+    if(!fits){
+      const warn=div({marginTop:5,color:RD,fontSize:9,padding:'2px 4px',background:'#1a0000'});
+      warn.textContent='✗ INCOMPATIBLE: Reduce prompt by ~'+(inTok-m.ctx)+' tokens';
+      card.appendChild(warn);
+    }
+    const useb=btn('[USE THIS MODEL]',()=>{state.model=m.id;render();},m.id===state.model,m.id===state.model?G2:G3);
+    Object.assign(useb.style,{marginTop:6});
+    card.appendChild(useb);
+    c.appendChild(card);
+  });
+}
+
+function buildWizardView(c){
+  c.appendChild(sectionHeader('ADAPTIVE WIZARD','Answer guided questions to auto-generate an optimized prompt'));
+  const q=WIZARD_Q[state.wizardStep];
+  const progress=div({marginBottom:12});
+  progress.appendChild(div({color:G3,fontSize:10,marginBottom:4},'PROGRESS: Step '+(state.wizardStep+1)+' of '+WIZARD_Q.length));
+  const track=div({width:'100%',height:4,background:GD});
+  const fill=div({width:((state.wizardStep+1)/WIZARD_Q.length*100)+'%',height:'100%',background:G2});
+  track.appendChild(fill);progress.appendChild(track);
+  WIZARD_Q.forEach((wq,i)=>{
+    const dot=span({color:i<state.wizardStep?G1:i===state.wizardStep?CY:GD,fontSize:10},(i<state.wizardStep?'●':i===state.wizardStep?'◈':'○')+(i<WIZARD_Q.length-1?' ':''));
+    progress.appendChild(dot);
+  });
+  c.appendChild(progress);
+  const qBox=div({padding:'10px 12px',border:`1px solid ${G2}`,background:'#010f01',marginBottom:12});
+  qBox.appendChild(div({color:GD,fontSize:9,marginBottom:4},'QUESTION '+(state.wizardStep+1)+':'));
+  qBox.appendChild(div({color:WH,fontSize:12,fontWeight:'bold',marginBottom:2},q.q));
+  qBox.appendChild(div({color:G3,fontSize:9},'Select one option or type custom below'));
+  c.appendChild(qBox);
+  const opts=div({display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10});
+  q.opts.forEach(opt=>{
+    const ob=div({padding:'7px 10px',border:`1px solid ${BD}`,cursor:'pointer',fontSize:10,color:G2,background:'#010f01',transition:'all 0.1s'});
+    ob.textContent=opt;
+    ob.addEventListener('click',()=>{
+      state.wizardAnswers[q.id]=opt;
+      if(state.wizardStep<WIZARD_Q.length-1){state.wizardStep++;render();}
+      else{const built=buildFromWizard(state.wizardAnswers,state.mode);state.prompt=built;state.scores=scorePrompt(built,state.mode);state.issues=getIssues(built,state.mode);state.wizardStep=0;state.wizardAnswers={};state.view='ANALYZE';render();}
+    });
+    ob.addEventListener('mouseenter',()=>{ob.style.background=GD;ob.style.borderColor=G2;});
+    ob.addEventListener('mouseleave',()=>{ob.style.background='#010f01';ob.style.borderColor=BD;});
+    opts.appendChild(ob);
+  });
+  c.appendChild(opts);
+  const customRow=div({display:'flex',gap:6,marginBottom:10});
+  const custIn=h('input',{style:{flex:1,background:'#050e05',color:WH,border:`1px solid ${BD}`,padding:'5px 8px',fontFamily:'Courier New',fontSize:10,outline:'none'},placeholder:'Custom answer...'});
+  const custBtn=btn('[ENTER]',()=>{
+    if(!custIn.value.trim())return;
+    state.wizardAnswers[q.id]=custIn.value.trim();
+    if(state.wizardStep<WIZARD_Q.length-1){state.wizardStep++;render();}
+    else{const built=buildFromWizard(state.wizardAnswers,state.mode);state.prompt=built;state.scores=scorePrompt(built,state.mode);state.issues=getIssues(built,state.mode);state.wizardStep=0;state.wizardAnswers={};state.view='ANALYZE';render();}
+  },false,G2);
+  customRow.appendChild(custIn);customRow.appendChild(custBtn);
+  if(state.wizardStep>0){
+    customRow.appendChild(btn('[← BACK]',()=>{state.wizardStep--;render();},false,G3));
+  }
+  c.appendChild(customRow);
+  if(Object.keys(state.wizardAnswers).length>0){
+    const ansBox=div({padding:'8px 10px',border:`1px solid ${GD}`,background:'#010f01',marginTop:4});
+    ansBox.appendChild(div({color:G3,fontSize:10,marginBottom:4},'COLLECTED ANSWERS:'));
+    Object.keys(state.wizardAnswers).forEach(k=>{
+      const row=div({fontSize:9,marginBottom:2});
+      row.appendChild(span({color:GD},k.toUpperCase()+': '));
+      row.appendChild(span({color:G2},state.wizardAnswers[k]));
+      ansBox.appendChild(row);
+    });
+    c.appendChild(ansBox);
+  }
+}
+
+function buildHistoryView(c){
+  c.appendChild(sectionHeader('SESSION HISTORY','Recent prompt analysis sessions — click to restore'));
+  if(!state.history.length){
+    c.appendChild(div({color:G3,fontSize:11,padding:'16px 0'},'── No analysis history yet. Analyze a prompt to populate ──'));
+    return;
+  }
+  state.history.forEach((h_,i)=>{
+    const ts=new Date(h_.ts);
+    const tStr=ts.getHours().toString().padStart(2,'0')+':'+ts.getMinutes().toString().padStart(2,'0')+':'+ts.getSeconds().toString().padStart(2,'0');
+    const sc=h_.score;
+    const sc_=sc>=75?G1:sc>=50?YL:RD;
+    const card=div({padding:'8px 10px',border:`1px solid ${BD}`,marginBottom:6,cursor:'pointer',background:'#010f01'});
+    card.addEventListener('mouseenter',()=>card.style.borderColor=G3);
+    card.addEventListener('mouseleave',()=>card.style.borderColor=BD);
+    const top=div({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4});
+    top.appendChild(span({color:G3,fontSize:10},'['+String(i+1).padStart(2,'0')+'] '+tStr+' | MODE: '+h_.mode+' | MODEL: '+h_.model));
+    if(sc)top.appendChild(span({color:sc_,fontSize:11,fontWeight:'bold'},sc+'/100'));
+    card.appendChild(top);
+    card.appendChild(div({color:WH,fontSize:10,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:380},h_.prompt));
+    const loadBtn=btn('[RESTORE]',()=>{state.prompt=h_.prompt||state.prompt;state.mode=h_.mode;state.model=h_.model;state.scores=scorePrompt(state.prompt,state.mode);state.issues=getIssues(state.prompt,state.mode);state.view='ANALYZE';render();},false,G2);
+    Object.assign(loadBtn.style,{marginTop:5});
+    card.appendChild(loadBtn);
+    c.appendChild(card);
+  });
+  const clearBtn=btn('[CLEAR HISTORY]',()=>{state.history=[];render();},false,RD);
+  Object.assign(clearBtn.style,{marginTop:8});
+  c.appendChild(clearBtn);
+}
+
+function sectionHeader(title,sub){
+  const w=div({marginBottom:12,paddingBottom:6,borderBottom:`1px solid ${GD}`});
+  w.appendChild(div({color:G1,fontSize:13,fontWeight:'bold',marginBottom:2},'► '+title));
+  if(sub)w.appendChild(div({color:G3,fontSize:9},sub));
+  return w;
+}
+
+function buildStatusBar(){
+  const bar=div({background:'#010e01',borderTop:`1px solid ${BD}`,padding:'4px 12px',display:'flex',alignItems:'center',justifyContent:'space-between'});
+  const s=state.scores;
+  const sl=div({display:'flex',gap:12,alignItems:'center'});
+  sl.appendChild(span({color:G3,fontSize:10},'STATUS: '+(state.prompt?'PROMPT LOADED':'AWAITING INPUT')));
+  sl.appendChild(span({color:GD,fontSize:9},'|'));
+  sl.appendChild(span({color:s?G2:G3,fontSize:10},'SCORE: '+(s?s.overall+'/100':'N/A')));
+  sl.appendChild(span({color:GD,fontSize:9},'|'));
+  sl.appendChild(span({color:G3,fontSize:10},'ISSUES: '+state.issues.filter(x=>x.t==='ERR'||x.t==='WARN').length+' warn | '+state.issues.filter(x=>x.t==='INFO').length+' info'));
+  bar.appendChild(sl);
+  const sr=div({display:'flex',gap:8,alignItems:'center'});
+  sr.appendChild(span({color:GD,fontSize:9},'HISTORY: '+state.history.length+'/10'));
+  sr.appendChild(span({color:GD,fontSize:9},'|'));
+  sr.appendChild(span({color:GD,fontSize:9},'Prompt_Studio MVP © 2025'));
+  bar.appendChild(sr);
+  return bar;
+}
+
+// Initial render
+render();
+
+// Cursor blink
+setInterval(()=>{state.cursor=!state.cursor;},500);
+
+})();
+</script>
