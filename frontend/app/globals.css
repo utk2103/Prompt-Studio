@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --g1: #33ff66;
+  --g2: #00cc44;
+  --g3: #007722;
+  --gd: #004411;
+  --yl: #ffcc00;
+  --rd: #ff4444;
+  --cy: #00ccff;
+  --wh: #e8ffe8;
+  --bg: #080c08;
+  --bg2: #0b100b;
+  --bd: #003311;
+}
+
+* {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--g1);
+  overflow: hidden;
+}
+
+/* CRT scanlines */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.065) 2px,
+    rgba(0, 0, 0, 0.065) 4px
+  );
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gd);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--g3);
+}
+
+textarea,
+input,
+select {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  outline: none;
+}
+textarea:focus,
+input:focus {
+  box-shadow: 0 0 0 1px var(--g3) !important;
+}
+
+button {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+button:active {
+  transform: scale(0.97);
+}
+
+.bar-fill {
+  transition: width 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glow {
+  text-shadow: 0 0 9px rgba(51, 255, 102, 0.55);
+}
+.glow-y {
+  text-shadow: 0 0 9px rgba(255, 204, 0, 0.55);
+}
+.glow-c {
+  text-shadow: 0 0 9px rgba(0, 204, 255, 0.55);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+@keyframes toast-in {
+  from { transform: translateX(14px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.ldot {
+  display: inline-block;
+  animation: blink 0.7s step-end infinite;
+}
+.ldot:nth-child(2) { animation-delay: 0.23s; }
+.ldot:nth-child(3) { animation-delay: 0.46s; }
+
+.cursor {
+  display: inline-block;
+  animation: blink 1s step-end infinite;
+}
+
+.toast-animate {
+  animation: toast-in 0.18s ease;
+}
