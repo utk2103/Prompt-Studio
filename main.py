@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 import uuid
 import time
+import json
 from typing import Optional, Literal
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +16,12 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from pathlib import Path
 from collections import deque
+from fref_score import fref_score
+
+# ─── Config ───────────────────────────────────────────────────────────────────
+
+with open("config.json", "r") as f:
+    CONFIG = json.load(f)
 
 # ─── App ──────────────────────────────────────────────────────────────────────
 
@@ -111,7 +118,7 @@ def score_prompt(text: str, mode: str) -> dict:
     dims = [clarity, specificity, context_score, format_score, mode_alignment, token_eff, constraints]
     overall = round(sum(dims) / len(dims))
 
-    return {
+    result = {
         "overall":         overall,
         "clarity":         round(clarity),
         "specificity":     round(specificity),
@@ -123,6 +130,11 @@ def score_prompt(text: str, mode: str) -> dict:
         "grade":           "A" if overall >= 85 else "B" if overall >= 70 else "C" if overall >= 55 else "D" if overall >= 40 else "F",
         "label":           "EXCELLENT" if overall >= 85 else "GOOD" if overall >= 70 else "FAIR" if overall >= 55 else "POOR" if overall >= 40 else "CRITICAL",
     }
+    
+    if CONFIG.get("fref_score", False):
+        result["fref_score"] = fref_score(text)
+    
+    return result
 
 # ─── Validation / Issue Detection ─────────────────────────────────────────────
 
@@ -339,13 +351,16 @@ def score(req: ScoreRequest):
     if not s:
         raise HTTPException(400, "Empty prompt")
     # Build top recommendations
-    dim_order = sorted(
-        [("clarity", s["clarity"]), ("specificity", s["specificity"]),
-         ("context", s["context"]), ("format", s["format"]),
-         ("mode_alignment", s["mode_alignment"]), ("token_efficiency", s["token_efficiency"]),
-         ("constraints", s["constraints"])],
-        key=lambda x: x[1]
-    )
+    dims_list = [("clarity", s["clarity"]), ("specificity", s["specificity"]),
+                 ("context", s["context"]), ("format", s["format"]),
+                 ("mode_alignment", s["mode_alignment"]), ("token_efficiency", s["token_efficiency"]),
+                 ("constraints", s["constraints"])]
+    
+    if "fref_score" in s:
+        dims_list.append(("fref_score", s["fref_score"]))
+    
+    dim_order = sorted(dims_list, key=lambda x: x[1])
+    
     recs_map = {
         "clarity":         "Simplify sentence structure; aim for 40-80 word prompts with clear logic",
         "specificity":     "Add a clear action verb: generate, analyze, explain, implement, evaluate",
@@ -354,8 +369,9 @@ def score(req: ScoreRequest):
         "mode_alignment":  f"Use vocabulary aligned with {req.mode} mode (e.g., {'code/function' if req.mode=='TECHNICAL' else 'narrative/scene' if req.mode=='CREATIVE' else 'you are/must/always'})",
         "token_efficiency":"Optimize length: remove politeness filler, add domain-specific context",
         "constraints":     "Define constraints: word limits, topics to avoid, required inclusions",
+        "fref_score":      "Improve readability: use simpler sentences and shorter words for better comprehension",
     }
-    recommendations = [recs_map[d] for d, _ in dim_order[:3]]
+    recommendations = [recs_map[d] for d, _ in dim_order[:3] if d in recs_map]
     return {**s, "recommendations": recommendations, "mode": req.mode}
 
 
