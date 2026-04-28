@@ -10,7 +10,7 @@ body:
         Thanks for filing this report. Keep every answer concise, reproducible, and grounded in observed evidence.
         Do not speculate or infer beyond the evidence. If a narrative section cannot be answered from the available evidence, respond with exactly `NOT_ENOUGH_INFO`.
 
-        If this is a plugin beta-release blocker, rename the issue title to `Beta blocker: <plugin-name> - <summary>` and apply the `beta-blocker` label after filing.
+        If this is a release blocker, rename the issue title to `Release blocker: <feature-area> - <summary>` and apply the `release-blocker` label after filing.
   - type: dropdown
     id: bug_type
     attributes:
@@ -23,13 +23,13 @@ body:
     validations:
       required: true
   - type: dropdown
-    id: beta_blocker
+    id: release_blocker
     attributes:
-      label: Beta release blocker
+      label: Release blocker
       description: >
-        Choose `Yes` only if this blocks plugin compatibility during the current beta release window.
-        Selecting `Yes` does not apply the label automatically. You must also rename the issue title
-        to `Beta blocker: <plugin-name> - <summary>` for the automation to apply the `beta-blocker` label.
+        Choose `Yes` only if this blocks the current release. Selecting `Yes` does not apply the label
+        automatically — you must also rename the issue title to `Release blocker: <feature-area> - <summary>`
+        for the automation to apply the `release-blocker` label.
       options:
         - "No"
         - "Yes"
@@ -40,7 +40,7 @@ body:
     attributes:
       label: Summary
       description: One-sentence statement of what is broken, based only on observed evidence. If the evidence is insufficient, respond with exactly `NOT_ENOUGH_INFO`.
-      placeholder: After upgrading from 2026.2.10 to 2026.2.17, Telegram thread replies stopped posting; reproduced twice and confirmed by gateway logs.
+      placeholder: After upgrading from 1.2.0 to 1.3.0, prompt variables stopped rendering in the output panel; reproduced twice and confirmed by browser console errors.
     validations:
       required: true
   - type: textarea
@@ -49,9 +49,9 @@ body:
       label: Steps to reproduce
       description: Provide the shortest deterministic repro path supported by direct observation. If the repro path cannot be grounded from the evidence, respond with exactly `NOT_ENOUGH_INFO`.
       placeholder: |
-        1. Start OpenClaw 2026.2.17 with the attached config.
-        2. Send a Telegram thread reply in the affected chat.
-        3. Observe no reply and confirm the attached `reply target not found` log line.
+        1. Open Prompt Studio 1.3.0 and create a prompt with a `{{variable}}` placeholder.
+        2. Run the prompt using the "Execute" button.
+        3. Observe that the variable is not substituted in the output and check the browser console for the attached error.
     validations:
       required: true
   - type: textarea
@@ -59,7 +59,7 @@ body:
     attributes:
       label: Expected behavior
       description: State the expected result using a concrete reference such as prior observed behavior, attached docs, or a known-good version. If no grounded reference exists, respond with exactly `NOT_ENOUGH_INFO`.
-      placeholder: In 2026.2.10, the agent posted replies in the same Telegram thread under the same workflow.
+      placeholder: In version 1.2.0, prompt variables were substituted correctly in the output panel using the same template.
     validations:
       required: true
   - type: textarea
@@ -67,15 +67,15 @@ body:
     attributes:
       label: Actual behavior
       description: Describe only the observed result, including user-visible errors and cited evidence. If the observed result cannot be grounded from the evidence, respond with exactly `NOT_ENOUGH_INFO`.
-      placeholder: No reply is posted in the thread; the attached gateway log shows `reply target not found` at 14:23:08 UTC.
+      placeholder: The output panel shows the raw `{{variable}}` string instead of the substituted value; the attached console log shows `TypeError: Cannot read properties of undefined` at 14:23:08 UTC.
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: OpenClaw version
+      label: Prompt Studio version
       description: Exact version/build tested.
-      placeholder: <version such as 2026.2.17>
+      placeholder: <version such as 1.3.0>
     validations:
       required: true
   - type: input
@@ -90,14 +90,14 @@ body:
     id: install_method
     attributes:
       label: Install method
-      description: How OpenClaw was installed or launched.
-      placeholder: npm global / pnpm dev / docker / mac app
+      description: How Prompt Studio was installed or launched.
+      placeholder: npm dev / docker / vercel / self-hosted
   - type: input
     id: model
     attributes:
       label: Model
       description: Effective model under test.
-      placeholder: minimax/text-01 / openrouter/anthropic/claude-opus-4.1 / anthropic/claude-sonnet-4.5
+      placeholder: anthropic/claude-sonnet-4-6 / openai/gpt-4o / openrouter/meta-llama/llama-3.1-70b
     validations:
       required: true
   - type: input
@@ -105,7 +105,7 @@ body:
     attributes:
       label: Provider / routing chain
       description: Effective request path through gateways, proxies, providers, or model routers.
-      placeholder: openclaw -> cloudflare-ai-gateway -> minimax
+      placeholder: prompt-studio -> litellm -> anthropic
     validations:
       required: true
   - type: textarea
@@ -114,9 +114,9 @@ body:
       label: Additional provider/model setup details
       description: Optional. Include redacted routing details, per-agent overrides, auth-profile interactions, env/config context, or anything else needed to explain the effective provider/model setup. Do not include API keys, tokens, or passwords.
       placeholder: |
-        Default route is openclaw -> cloudflare-ai-gateway -> minimax.
-        Previous setup was openclaw -> cloudflare-ai-gateway -> openrouter -> minimax.
-        Relevant config lives in ~/.openclaw/openclaw.json under models.providers.minimax and models.providers.cloudflare-ai-gateway.
+        Default route is prompt-studio -> litellm -> anthropic.
+        Previous setup was prompt-studio -> litellm -> openrouter -> anthropic.
+        Relevant config lives in .env under LITELLM_MODEL and LLM_PROVIDER, or in the workspace settings panel under Models.
   - type: textarea
     id: logs
     attributes:
@@ -136,13 +136,13 @@ body:
         - Frequency (always/intermittent/edge case)
         - Consequence (missed messages, failed onboarding, extra cost, etc.)
       placeholder: |
-        Affected: Telegram group users on 2026.2.17
-        Severity: High (blocks thread replies)
+        Affected: All users running prompts with variables on 1.3.0
+        Severity: High (blocks core prompt execution workflow)
         Frequency: 4/4 observed attempts
-        Consequence: Agents do not respond in the affected threads
+        Consequence: Prompts return raw template strings instead of processed output
   - type: textarea
     id: additional_information
     attributes:
       label: Additional information
       description: Add any remaining grounded context that helps triage but does not fit above. If this is a regression, include the last known good and first known bad versions when observed. If there is not enough evidence, respond with exactly `NOT_ENOUGH_INFO`.
-      placeholder: Last known good version 2026.2.10, first known bad version 2026.2.17, temporary workaround is sending a top-level message instead of a thread reply.
+      placeholder: Last known good version 1.2.0, first known bad version 1.3.0, temporary workaround is inlining variable values directly into the prompt text.
