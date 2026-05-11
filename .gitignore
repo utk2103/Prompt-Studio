@@ -142,3 +142,6 @@ vite.config.ts.timestamp-*
 __pycache__
 .venv
 .claude
+
+#caveman/
+caveman/*
