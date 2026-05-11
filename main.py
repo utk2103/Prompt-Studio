@@ -157,7 +157,7 @@ def get_issues(text: str, mode: str) -> list[dict]:
         issues.append({"type": "INFO",  "code": "NO_EXAMPLES",     "message": "No examples detected — few-shot examples improve output fidelity 15-30%"})
     if not re.search(r'\b(only|limit|avoid|do not|must|ensure|strictly)\b', text, re.I):
         issues.append({"type": "INFO",  "code": "NO_CONSTRAINTS",  "message": "No constraints defined — open-ended prompts risk scope drift"})
-    if re.search(r'\b(please|kindly|could you)\b', text, re.I):
+    if re.search(r"\b(?:please|kindly|could you|can you|would you|sure|certainly|of course|thank you)\b", text, re.I):
         issues.append({"type": "INFO",  "code": "POLITENESS",      "message": "Politeness markers add tokens without improving model output quality"})
     if not issues:
         issues.append({"type": "OK",    "code": "CLEAN",           "message": "Format structure looks clean — no critical issues detected"})
@@ -266,6 +266,100 @@ def build_from_wizard(answers: dict, mode: str) -> str:
         p += "\nBe precise, accurate, and ensure all claims are well-supported."
 
     return p
+
+# ─── Caveman Compression Engine ───────────────────────────────────────────────
+# Ported from caveman/src/mcp-servers/caveman-shrink/compress.js
+#
+# Strategy: replace protected segments (code, URLs, paths, identifiers) with
+# null-byte sentinels (\x00N\x00), run prose transforms on the remainder,
+# then restore the originals. Null bytes can't appear in prompt text, so
+# sentinels never collide with digit sequences that survive compression
+# (e.g. "step 3 of 5" — the previous space-delimited approach corrupted these).
+
+_PROTECTED_RE: list[re.Pattern] = [
+    re.compile(r'```[\s\S]*?```'),                                 # fenced code blocks
+    re.compile(r'`[^`\n]+`'),                                      # inline code
+    re.compile(r'\bhttps?://\S+', re.I),                           # URLs
+    re.compile(r'\b[\w.\-]*/[\w./\-]+'),                           # filesystem paths (/ separator)
+    re.compile(r'\b[A-Z][A-Za-z0-9]*(?:_[A-Z][A-Za-z0-9]*)+\b'), # CONST_CASE identifiers
+    re.compile(r'\b\w+\.\w+(?:\.\w+)*\(\)?'),                      # dotted.method() calls
+    re.compile(r'[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)'),            # function(args) calls
+    re.compile(r'\b\d+\.\d+\.\d+\b'),                              # version numbers x.y.z
+]
+
+_RE_FILLERS      = re.compile(r'\b(?:just|really|basically|actually|simply|quite|very|essentially|literally)\b', re.I)
+_RE_PLEASANTRIES = re.compile(r"\b(?:please|kindly|thank\s+you|thanks|sure|certainly|of\s+course|happy\s+to|i'?d\s+be\s+happy)\b[,.]?\s*", re.I)
+_RE_HEDGES       = re.compile(r"\b(?:perhaps|maybe|might|could\s+potentially|would\s+like\s+to|i\s+think|in\s+my\s+opinion|it\s+seems|it\s+appears)\b\s*", re.I)
+_RE_LEADERS      = re.compile(r"^(?:i'?ll|i\s+will|i\s+can|i'?d|you\s+can|we\s+will|we\s+can|let\s+me|let'?s)\s+", re.I | re.M)
+_RE_ARTICLES     = re.compile(r'\b(?:a|an|the)\s+(?=[a-z])', re.I)
+_RE_MULTI_SPACE  = re.compile(r'[ \t]{2,}')
+_RE_PUNCT_SPACE  = re.compile(r'\s+([,.;:!?])')
+_RE_MULTI_NL     = re.compile(r'\n{3,}')
+# Sentence-internal capitalization: after `. `, `! `, `? ` (requires whitespace gap).
+# String-start capitalization handled separately in _compress_prose because
+# (^)\s+ would require whitespace before the first char — there is none.
+_RE_SENT_CAP     = re.compile(r'([.!?]\s+)([a-z])')
+
+
+def _with_protected_segments(text: str, transform) -> str:
+    """
+    Protect technical content during prose compression.
+
+    Each protected match is replaced with \\x00N\\x00 before the transform runs.
+    After the transform, sentinels are swapped back to their original strings.
+    Sentinels use null bytes so they can't clash with anything in the input.
+    """
+    segments: list[str] = []
+
+    def protect(m: re.Match) -> str:
+        idx = len(segments)
+        segments.append(m.group(0))
+        return f'\x00{idx}\x00'
+
+    working = text
+    for pat in _PROTECTED_RE:
+        working = pat.sub(protect, working)
+
+    out = transform(working)
+
+    def restore(m: re.Match) -> str:
+        idx = int(m.group(1))
+        return segments[idx] if idx < len(segments) else ''
+
+    return re.sub(r'\x00(\d+)\x00', restore, out)
+
+
+def _compress_prose(text: str) -> str:
+    """Apply all caveman prose compression rules to unprotected text."""
+    s = _RE_LEADERS.sub('', text)
+    s = _RE_PLEASANTRIES.sub('', s)
+    s = _RE_HEDGES.sub('', s)
+    s = _RE_FILLERS.sub('', s)
+    s = _RE_ARTICLES.sub('', s)
+    s = _RE_MULTI_SPACE.sub(' ', s)
+    s = _RE_PUNCT_SPACE.sub(r'\1', s)
+    s = _RE_MULTI_NL.sub('\n\n', s)
+    s = s.strip()
+    # Re-capitalize string start (removals may leave a lowercase first char),
+    # then after sentence-ending punctuation + whitespace.
+    if s and s[0].islower():
+        s = s[0].upper() + s[1:]
+    s = _RE_SENT_CAP.sub(lambda m: m.group(1) + m.group(2).upper(), s)
+    return s
+
+
+def _caveman_compress(text: str) -> str:
+    """
+    Full caveman compression pipeline.
+
+    Protects code blocks, inline code, URLs, filesystem paths, CONST_CASE
+    identifiers, dotted method calls, and version numbers from modification.
+    Applies filler/pleasantry/hedge/leader/article removal only to prose.
+    """
+    if not text:
+        return text
+    return _with_protected_segments(text, _compress_prose)
+
 
 # ─── Pydantic Schemas ─────────────────────────────────────────────────────────
 
@@ -481,18 +575,18 @@ def wizard_generate(req: WizardGenerateRequest):
 
 @app.post("/prompt/compress")
 def compress_prompt(req: ScoreRequest):
-    """Token compression — remove filler without losing semantic content."""
-    text = req.prompt
-    fillers = [r'\bplease\b', r'\bkindly\b', r'\bcould you\b', r'\bcan you\b',
-               r'\bwould you\b', r'\bjust\b', r'\breally\b', r'\bvery\b', r'\bbasically\b']
-    compressed = text
-    for f in fillers:
-        compressed = re.sub(f, '', compressed, flags=re.I)
-    compressed = re.sub(r'  +', ' ', compressed).strip()
-    original_tok = estimate_tokens(text)
+    """
+    Token compression using caveman rules.
+
+    Removes fillers, pleasantries, hedges, leading phrases, and articles from
+    prose while leaving code blocks, inline code, URLs, filesystem paths,
+    CONST_CASE identifiers, dotted method calls, and version numbers untouched.
+    """
+    compressed = _caveman_compress(req.prompt)
+    original_tok = estimate_tokens(req.prompt)
     compressed_tok = estimate_tokens(compressed)
     return {
-        "original": text,
+        "original": req.prompt,
         "compressed": compressed,
         "tokens_saved": original_tok - compressed_tok,
         "compression_ratio": round(compressed_tok / max(original_tok, 1), 3),
