@@ -1,9 +1,10 @@
 [project]
 name = "prompt-studio"
 version = "1.0.0"
+readme = "README.md"
 description = "AI-powered prompt engineering assistant: scoring, validation, optimization, and semantic search."
 authors = [
-    {name = "Utkarsh Upadhyay", email = "utk2103@github.com"},
+    {name = "Utkarsh Upadhyay", email = "btoshine774@gmail.com"},
 ]
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -32,6 +33,12 @@ make_migration = "alembic revision --autogenerate -m"
 test    = "pytest"
 lint    = "ruff check ."
 fmt     = "ruff format ."
+
+[project.urls]
+Homepage = "https://github.com/utk2103/prompt-studio"
+Repository = "https://github.com/utk2103/prompt-studio"
+Issues = "https://github.com/utk2103/prompt-studio"
+
 
 [tool.pdm.dev-dependencies]
 test = [
