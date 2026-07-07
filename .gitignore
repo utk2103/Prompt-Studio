@@ -139,9 +139,24 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 # python
-__pycache__
-.venv
-.claude
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.claude/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# runtime artifacts
+dump.rdb
+*.log
 
 #caveman/
 caveman/*
+caveman

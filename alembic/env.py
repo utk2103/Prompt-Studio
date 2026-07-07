@@ -1,18 +1,24 @@
 from __future__ import annotations
 
 import os
+import sys
 from logging.config import fileConfig
+from pathlib import Path
 
 from sqlalchemy import engine_from_config, pool
+
 from alembic import context
 
-# Pull in our models so Alembic can detect schema changes automatically.
-import models  # noqa: F401 — registers all mapped classes on Base.metadata
-from database import Base
+# Allow `alembic` to import from the project root regardless of CWD.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from app.db import Base  # noqa: E402 — path set above
+import app.db  # noqa: F401,E402 — registers models on Base
 
 config = context.config
 
-# Override sqlalchemy.url from the environment when available.
 db_url = os.environ.get("DATABASE_URL")
 if db_url:
     config.set_main_option("sqlalchemy.url", db_url)
