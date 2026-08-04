@@ -41,6 +41,7 @@ fmt            = "ruff format ."
 typecheck      = "mypy app"
 security       = "bandit -r app"
 coverage       = "pytest --cov=app --cov-branch --cov-fail-under=70"
+check_versions = "python scripts/check_versions.py"
 
 [tool.pdm.dev-dependencies]
 test = [
