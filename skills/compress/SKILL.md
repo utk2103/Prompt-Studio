@@ -1,10 +1,12 @@
 ---
 name: compress
 description: >
-  Compress natural language memory files (CLAUDE.md, todos, preferences) into lean format
-  to save input tokens. Preserves all technical substance, code, URLs, and structure.
-  Compressed version overwrites the original file. Human-readable backup saved as FILE.original.md.
-  Trigger: /prompt-studio:compress FILEPATH or "compress memory file"
+  Prompt-Studio memory compressor. Shrinks CLAUDE.md, todo lists, and preference files
+  into Prompt-Studio's lean format to cut input tokens on every load. Preserves all
+  technical substance, code, URLs, and structure. Compressed output overwrites the
+  original; human-readable backup stored out-of-tree as FILE.original.md so Prompt-Studio's
+  skill auto-loader won't re-ingest it. Trigger: /prompt-studio:compress FILEPATH or
+  "compress memory file".
 ---
 
 # Prompt-Studio Compress
