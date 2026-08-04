@@ -1,7 +1,7 @@
 {
   "name": "prompt-studio",
   "version": "4.8.4",
-  "description": "Lazy senior dev mode. Forces the simplest, shortest solution that actually works: YAGNI, stdlib first, no unrequested abstractions.",
+  "description": "Prompt engineering workbench with a Lean persona layer that cuts LLM output size, cost, and latency. Injects the Lean ruleset every session via SessionStart + SubagentStart hooks.",
   "author": {
     "name": "utk2103",
     "url": "https://github.com/utk2103"
@@ -9,5 +9,5 @@
   "homepage": "https://github.com/utk2103/prompt-studio",
   "repository": "https://github.com/utk2103/prompt-studio",
   "license": "MIT",
-  "keywords": ["yagni", "minimalism", "code-review", "productivity"]
+  "keywords": ["yagni", "evals", "prompt-engineering", "productivity"]
 }
