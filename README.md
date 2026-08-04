@@ -245,6 +245,44 @@ ANTHROPIC_API_KEY=sk-ant-... python benchmarks/benchmark.py \
 
 Includes the standard five tasks (email, debounce, csv-sum, countdown, rate-limit) plus two Prompt-Studio-specific tasks that exercise the per-provider adapters (`chatml2xml`, `cost-est`). Agentic sub-harness (`benchmarks/agentic/`) runs the arms as full Claude Code sessions against a real repo.
 
+## Install as a Claude Code Plugin
+
+Prompt-Studio ships a Claude Code plugin (`.claude-plugin/`) that injects the Lean persona into every session via `SessionStart` + `SubagentStart` + `UserPromptSubmit` hooks.
+
+### From GitHub (recommended)
+
+Inside Claude Code:
+
+```
+/plugin marketplace add utk2103/Prompt-Studio
+/plugin install prompt-studio@prompt-studio
+```
+
+Start a new session — the SessionStart hook fires and the Lean ruleset lands in the system context.
+
+### From a local clone
+
+```
+/plugin marketplace add /path/to/Prompt-Studio
+/plugin install prompt-studio@prompt-studio
+```
+
+### Use it
+
+| Command       | Effect |
+|---------------|--------|
+| `/lean lite`  | Switch to minimum-payload intensity |
+| `/lean full`  | Default intensity |
+| `/lean ultra` | Maximum guidance |
+| `stop lean`   | Deactivate for the session |
+
+Mode persists in `~/.claude/.lean-active` across turns. Subagents spawned via `Task` inherit the ruleset through the `SubagentStart` hook — no drift.
+
+### Requirements
+
+- `python3` on `PATH` (all hooks are Python; no Node runtime needed).
+- Read access to the cloned repo (hooks resolve `${CLAUDE_PLUGIN_ROOT}/app/skills/lean/SKILL.md`).
+
 ## Database Schema
 
 Two tables, managed by Alembic:

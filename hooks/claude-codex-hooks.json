@@ -1,0 +1,44 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/lean_activate.py\"",
+            "commandWindows": "python \"$env:CLAUDE_PLUGIN_ROOT\\hooks\\lean_activate.py\"",
+            "timeout": 5,
+            "statusMessage": "Loading Lean mode..."
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/lean_subagent.py\"",
+            "commandWindows": "python \"$env:CLAUDE_PLUGIN_ROOT\\hooks\\lean_subagent.py\"",
+            "timeout": 5,
+            "statusMessage": "Loading Lean mode..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/lean_mode_tracker.py\"",
+            "commandWindows": "python \"$env:CLAUDE_PLUGIN_ROOT\\hooks\\lean_mode_tracker.py\"",
+            "timeout": 5,
+            "statusMessage": "Tracking Lean mode..."
+          }
+        ]
+      }
+    ]
+  }
+}
