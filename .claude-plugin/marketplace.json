@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "prompt-studio",
+  "description": "Lazy senior dev mode for AI agents. The best code is the code you never wrote.",
+  "owner": {
+    "name": "utk2103",
+    "url": "https://github.com/utk2103"
+  },
+  "plugins": [
+    {
+      "name": "prompt-studio",
+      "description": "Forces the laziest solution that works. YAGNI, stdlib first, one line over fifty.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}
