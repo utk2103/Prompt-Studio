@@ -62,6 +62,6 @@ across intensities, and LOC counter behavior.
 
 ## License
 
-MIT. `arms/caveman-SKILL.md` vendored from
+Apache-2.0. `arms/caveman-SKILL.md` vendored from
 <https://github.com/JuliusBrussee/caveman> (MIT).
 Repo: <https://github.com/utk2103/Prompt-Studio>.

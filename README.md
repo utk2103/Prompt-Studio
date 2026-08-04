@@ -10,7 +10,7 @@ AI-powered prompt engineering workbench — analyze, score, optimize, and store 
 <div>
   <img src="https://badgen.net/badge/status/Under%20Development/red?icon=lgtm" alt="status">
   <img src="https://img.shields.io/badge/Version-1.0.0-brightgreen.svg" alt="version">
-  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="license">
+  <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="license">
   <img src="https://img.shields.io/github/commit-activity/m/utk2103/Prompt-Studio" alt="commits">
   <img src="https://img.shields.io/github/repo-size/utk2103/Prompt-Studio" alt="repo size">
   <img src="https://img.shields.io/badge/code%20style-ruff-000000.svg" alt="code style">
@@ -68,20 +68,7 @@ docker compose -f docker-ignore.yml up --build
 # DB     → localhost:5432
 ```
 
-Migrations run automatically on API container startup (`alembic upgrade head`).
-
-### Database migrations (manual)
-
-```bash
-# Apply all pending migrations
-pdm run migrate
-
-# Auto-generate a new migration from model changes
-pdm run make_migration "describe your change"
-
-# Roll back one step
-pdm run rollback
-```
+Migrations run automatically on API container startup (`alembic upgrade head`). Manual migration commands live in [CONTRIBUTING.md](CONTRIBUTING.md#database-migrations).
 
 ## API Reference
 
@@ -328,7 +315,7 @@ Two tables, managed by Alembic:
 - Preview text, mode, model, overall score
 - FK to `prompts.id` for drill-down
 
-Embedding dimension defaults to `1536` (OpenAI `text-embedding-3-small`). Change `EMBEDDING_DIM` in `models.py` and generate a new migration to use a different model (e.g. `384` for `all-MiniLM-L6-v2`).
+Embedding dimension defaults to `1536` (OpenAI `text-embedding-3-small`). Change `EMBEDDING_DIM` in `app/db/models.py` and generate a new migration to use a different model (e.g. `384` for `all-MiniLM-L6-v2`).
 
 ## Environment Variables
 

@@ -4,7 +4,7 @@ version = "1.0.0"
 description = "MCP server that serves Prompt-Studio's Lean lazy-senior-dev ruleset as a prompt and a tool."
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 authors = [{name = "Utkarsh Upadhyay", email = "utkarsh@m37labs.com"}]
 
 dependencies = [

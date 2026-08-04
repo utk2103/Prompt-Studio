@@ -14,7 +14,7 @@ description: >
   use for non-coding requests (general knowledge, prose, translation,
   summaries, recipes).
 argument-hint: "[lite|full|ultra]"
-license: MIT
+license: Apache-2.0
 ---
 
 # Lean
