@@ -160,3 +160,5 @@ dump.rdb
 #caveman/
 caveman/*
 caveman
+
+benchmarks/results/*
