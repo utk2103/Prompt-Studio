@@ -59,8 +59,9 @@ Prompt-Studio/
 │   │   ├── models_registry.py
 │   │   ├── analyze.py       compress.py scoring.py tokens.py optimize.py wizard.py
 │   ├── schemas/             # Pydantic request/response models
-│   ├── db/                  # Engine, session, ORM
-│   └── skills/lean/SKILL.md # Persona source of truth
+│   └── db/                  # Engine, session, ORM
+├── skills/lean/SKILL.md     # Persona source of truth (also plugin skill entry)
+├── commands/                # Claude Code plugin slash-commands (TOML)
 ├── lean-mcp/                # MCP stdio server (Python, FastMCP)
 │   ├── server.py            instructions.py test/
 ├── benchmarks/              # Python arm harness (baseline / caveman / lean-*)

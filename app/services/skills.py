@@ -6,7 +6,7 @@ from pathlib import Path
 
 MODES = ("lite", "full", "ultra")
 DEFAULT_MODE = "full"
-SKILL_PATH = Path(__file__).resolve().parent.parent / "skills" / "lean" / "SKILL.md"
+SKILL_PATH = Path(__file__).resolve().parent.parent.parent / "skills" / "lean" / "SKILL.md"
 
 _TABLE_LABEL = re.compile(r"^\|\s*\*\*(.+?)\*\*\s*\|")
 _EXAMPLE_LABEL = re.compile(r'^-\s*([^:]+):\s*"')
