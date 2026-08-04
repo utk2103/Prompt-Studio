@@ -111,6 +111,66 @@ smallest thing that fails if the logic breaks: an `assert`-based
 fixtures, no per-function suites unless asked. Trivial one-liners need no
 test, YAGNI applies to tests too.
 
+## Coding Guidelines
+
+Behavioral rules that trim the most common LLM coding mistakes. Bias toward caution over speed; for trivial tasks, use judgment.
+
+### 1. Think Before Coding
+
+Don't assume. Don't hide confusion. Surface tradeoffs.
+
+Before implementing:
+- State assumptions explicitly. If uncertain, ask.
+- Multiple interpretations → present them, do not pick silently.
+- Simpler approach exists → say so. Push back when warranted.
+- Unclear → stop, name what's confusing, ask.
+
+### 2. Simplicity First
+
+Minimum code that solves the problem. Nothing speculative.
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- 200 lines that could be 50 → rewrite.
+
+Test: would a senior engineer say this is overcomplicated? If yes, simplify.
+
+### 3. Surgical Changes
+
+Touch only what you must. Clean up only your own mess.
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- Notice unrelated dead code → mention it, don't delete it.
+
+When changes create orphans:
+- Remove imports/vars/functions that *your* changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+Test: every changed line traces directly to the user's request.
+
+### 4. Goal-Driven Execution
+
+Define success criteria. Loop until verified.
+
+Turn tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+Multi-step tasks: state a brief plan.
+```
+1. [step] → verify: [check]
+2. [step] → verify: [check]
+3. [step] → verify: [check]
+```
+
+Strong criteria let the loop run independently. Weak criteria ("make it work") force constant clarification.
+
 ## Boundaries
 
 Lean governs what you build, not how you talk (pair with Caveman for
