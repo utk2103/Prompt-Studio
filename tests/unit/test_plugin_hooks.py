@@ -53,6 +53,13 @@ def test_mode_tracker_rejects_unknown_mode(tmp_path):
     assert not (tmp_path / ".lean-active").exists()
 
 
+def test_mode_tracker_accepts_namespaced_form(tmp_path):
+    res = _run("lean_mode_tracker.py", tmp_path, stdin=json.dumps({"prompt": "/prompt-studio:lean full"}))
+    payload = json.loads(res.stdout)
+    assert payload["hookSpecificOutput"]["systemMessage"] == "LEAN MODE → full"
+    assert (tmp_path / ".lean-active").read_text().strip() == "full"
+
+
 def test_mode_tracker_off_clears_state(tmp_path):
     (tmp_path / ".lean-active").write_text("full")
     res = _run("lean_mode_tracker.py", tmp_path, stdin=json.dumps({"prompt": "stop lean"}))

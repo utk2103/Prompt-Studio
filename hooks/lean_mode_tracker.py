@@ -20,8 +20,8 @@ from _lean_common import (
     write_mode,
 )
 
-_CMD = re.compile(r"^\s*/lean\s+(\S+)\s*$", re.IGNORECASE)
-_OFF = re.compile(r"^\s*(stop\s+lean|normal\s+mode|/lean\s+off)\s*$", re.IGNORECASE)
+_CMD = re.compile(r"^\s*/(?:prompt-studio:)?lean\s+(\S+)\s*$", re.IGNORECASE)
+_OFF = re.compile(r"^\s*(stop\s+lean|normal\s+mode|/(?:prompt-studio:)?lean\s+off)\s*$", re.IGNORECASE)
 
 
 def main() -> None:

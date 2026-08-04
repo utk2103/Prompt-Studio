@@ -269,14 +269,24 @@ Start a new session — the SessionStart hook fires and the Lean ruleset lands i
 
 ### Use it
 
-| Command       | Effect |
-|---------------|--------|
-| `/lean lite`  | Switch to minimum-payload intensity |
-| `/lean full`  | Default intensity |
-| `/lean ultra` | Maximum guidance |
-| `stop lean`   | Deactivate for the session |
+Claude Code namespaces plugin slash-commands by plugin name. Both forms work — the mode-tracker hook accepts either.
+
+| Command                          | Effect |
+|----------------------------------|--------|
+| `/prompt-studio:lean lite`       | Switch to minimum-payload intensity |
+| `/prompt-studio:lean full`       | Default intensity |
+| `/prompt-studio:lean ultra`      | Maximum guidance |
+| `/prompt-studio:lean off` or `stop lean` | Deactivate for the session |
+
+Short form (`/lean lite`, `/lean full`, `/lean ultra`, `stop lean`) also works because the hook parses the raw prompt on `UserPromptSubmit` — even when Claude Code's slash-command menu doesn't recognize the un-namespaced form.
 
 Mode persists in `~/.claude/.lean-active` across turns. Subagents spawned via `Task` inherit the ruleset through the `SubagentStart` hook — no drift.
+
+### Troubleshooting
+
+- `/lean` shows "command not found" in the menu → use `/prompt-studio:lean` instead; the raw `/lean X` form still works if you submit it as a message.
+- Hooks don't fire → confirm `python3` is on `PATH` (`which python3`), then check `~/.claude/plugins/*/prompt-studio/hooks/` exists after install.
+- Nothing in system context after `SessionStart` → run `python3 hooks/lean_activate.py` manually from the plugin dir; if it prints the ruleset, the manifest is wired correctly and the issue is Claude Code hook execution.
 
 ### Requirements
 
