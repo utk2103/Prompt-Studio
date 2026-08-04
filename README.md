@@ -10,7 +10,7 @@ AI-powered prompt engineering workbench — analyze, score, optimize, and store 
 <div>
   <img src="https://badgen.net/badge/status/Under%20Development/red?icon=lgtm" alt="status">
   <img src="https://img.shields.io/badge/Version-1.0.0-brightgreen.svg" alt="version">
-  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="license">
+  <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="license">
   <img src="https://img.shields.io/github/commit-activity/m/utk2103/Prompt-Studio" alt="commits">
   <img src="https://img.shields.io/github/repo-size/utk2103/Prompt-Studio" alt="repo size">
   <img src="https://img.shields.io/badge/code%20style-ruff-000000.svg" alt="code style">
@@ -35,61 +35,6 @@ Prompt Studio gives you a structured workflow for writing better prompts:
 - **`lean-mcp`** — MCP stdio server exposing the same ruleset as a prompt + tool for MCP hosts
 - **Benchmarks** — Python harness comparing `baseline` / `caveman` / `lean-{lite,full,ultra}` arms across LOC, tokens, cost, latency
 
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Backend | FastAPI · Python 3.11+ · Pydantic v2 |
-| Database | PostgreSQL 16 + pgvector · SQLAlchemy 2 · Alembic |
-| Frontend | Next.js 14 (App Router) · TypeScript · Tailwind CSS |
-| Containerization | Docker · docker-compose |
-
-## Project Structure
-
-```
-Prompt-Studio/
-├── app/
-│   ├── main.py              # FastAPI app init + router registration
-│   ├── config.py            # Settings (env-driven)
-│   ├── lifespan.py          # Startup/shutdown hooks
-│   ├── routes/              # Thin API endpoints
-│   ├── services/            # Business logic
-│   │   ├── skills.py        # Lean persona loader + mode filter (lite/full/ultra)
-│   │   ├── formats.py       # Per-provider adapters + build_messages()
-│   │   ├── models_registry.py
-│   │   ├── analyze.py       compress.py scoring.py tokens.py optimize.py wizard.py
-│   ├── schemas/             # Pydantic request/response models
-│   └── db/                  # Engine, session, ORM
-├── skills/lean/SKILL.md     # Persona source of truth (also plugin skill entry)
-├── commands/                # Claude Code plugin slash-commands (TOML)
-├── lean-mcp/                # MCP stdio server (Python, FastMCP)
-│   ├── server.py            instructions.py test/
-├── benchmarks/              # Python arm harness (baseline / caveman / lean-*)
-│   ├── benchmark.py         arms/ agentic/ test_arms.py
-├── alembic/                 # DB migrations
-├── tests/                   # pytest suite (unit + integration)
-├── pyproject.toml           requirements.txt
-├── dockerfile               docker-ignore.yml
-└── frontend/
-    ├── Dockerfile           # Multi-stage Next.js build
-    ├── app/                 # Next.js App Router
-    │   ├── layout.tsx
-    │   ├── page.tsx         # Root page — full app state lives here
-    │   └── globals.css      # CRT terminal aesthetic + Tailwind base
-    ├── components/
-    │   ├── Header.tsx
-    │   ├── SideNav.tsx
-    │   ├── StatusBar.tsx
-    │   ├── BarViz.tsx
-    │   ├── ToastContainer.tsx
-    │   └── views/           # One component per view (Analyze, Score, Tokens, …)
-    └── lib/
-        ├── types.ts
-        ├── constants.ts     # Fallback model list + wizard questions
-        ├── scoring.ts       # Local scoring engine (mirrors backend logic)
-        ├── api.ts           # apiFetch + initAPI
-        └── utils.ts         # tok(), fmtN(), wc()
-```
 
 ## Quickstart
 
@@ -123,20 +68,7 @@ docker compose -f docker-ignore.yml up --build
 # DB     → localhost:5432
 ```
 
-Migrations run automatically on API container startup (`alembic upgrade head`).
-
-### Database migrations (manual)
-
-```bash
-# Apply all pending migrations
-pdm run migrate
-
-# Auto-generate a new migration from model changes
-pdm run make_migration "describe your change"
-
-# Roll back one step
-pdm run rollback
-```
+Migrations run automatically on API container startup (`alembic upgrade head`). Manual migration commands live in [CONTRIBUTING.md](CONTRIBUTING.md#database-migrations).
 
 ## API Reference
 
@@ -193,7 +125,7 @@ Each prompt is evaluated across 7 dimensions (0–100), producing an overall sco
 
 ## Lean Persona Layer
 
-Prompt-Studio ships a ponytail-inspired **Lean** persona (`app/skills/lean/SKILL.md`) that reduces LLM output size, cost, and latency. One source of truth, filtered per intensity by `app/services/skills.py::get_lean_instructions(mode)` and injected in the system slot by per-provider adapters in `app/services/formats.py`.
+Prompt-Studio ships a ponytail-inspired **Lean** persona (`skills/lean/SKILL.md`) that reduces LLM output size, cost, and latency. One source of truth, filtered per intensity by `app/services/skills.py::get_lean_instructions(mode)` and injected in the system slot by per-provider adapters in `app/services/formats.py`.
 
 ```python
 from app.services.formats import build_messages
@@ -246,53 +178,129 @@ ANTHROPIC_API_KEY=sk-ant-... python benchmarks/benchmark.py \
 
 Includes the standard five tasks (email, debounce, csv-sum, countdown, rate-limit) plus two Prompt-Studio-specific tasks that exercise the per-provider adapters (`chatml2xml`, `cost-est`). Agentic sub-harness (`benchmarks/agentic/`) runs the arms as full Claude Code sessions against a real repo.
 
-## Install as a Claude Code Plugin
+## Install as an Agent Plugin
 
-Prompt-Studio ships a Claude Code plugin (`.claude-plugin/`) that injects the Lean persona into every session via `SessionStart` + `SubagentStart` + `UserPromptSubmit` hooks.
+Prompt-Studio ships adapters for the major agent hosts. Each one injects the Lean persona from the same `skills/lean/SKILL.md` — one source of truth, zero drift across hosts.
 
-### From GitHub (recommended)
+The Python hooks (`hooks/lean_*.py`) run on `SessionStart`, `SubagentStart`, and `UserPromptSubmit`, so `python3` needs to be on `PATH`. Nix/nvm users: it must be on the non-interactive shell's PATH too.
 
-Inside Claude Code:
+### Claude Code
 
 ```
 /plugin marketplace add utk2103/Prompt-Studio
 /plugin install prompt-studio@prompt-studio
 ```
 
-Start a new session — the SessionStart hook fires and the Lean ruleset lands in the system context.
+Two separate prompts. Start a new session; the ruleset lands in system context on `SessionStart`.
 
-### From a local clone
-
+Local clone:
 ```
 /plugin marketplace add /path/to/Prompt-Studio
 /plugin install prompt-studio@prompt-studio
 ```
 
-### Use it
+### Codex
 
-Claude Code namespaces plugin slash-commands by plugin name. Both forms work — the mode-tracker hook accepts either.
+```bash
+codex plugin marketplace add utk2103/Prompt-Studio
+codex plugin add prompt-studio@prompt-studio
+```
+
+Run `codex`, open `/hooks`, trust the two lifecycle hooks, start a new thread. Same install covers the Codex desktop app after restart.
+
+### GitHub Copilot CLI
+
+```bash
+copilot plugin marketplace add utk2103/Prompt-Studio
+copilot plugin install prompt-studio@prompt-studio
+```
+
+Or the slash equivalents inside an interactive Copilot session:
+```
+/plugin marketplace add utk2103/Prompt-Studio
+/plugin install prompt-studio@prompt-studio
+```
+
+Copilot CLI namespaces plugin commands: `/prompt-studio:lean ultra`, `/prompt-studio:compress <path>`.
+
+### Devin CLI
+
+```bash
+devin plugins install utk2103/Prompt-Studio
+```
+
+Skills expose as `/prompt-studio:lean`, `/prompt-studio:compress`, etc.
+
+### Qoder
+
+```bash
+# per-project
+cp -r .qoder /path/to/your-project/
+```
+
+Qoder auto-loads `AGENTS.md` and `.qoder/rules/*.md` as always-on context. For full plugin-tier support (auto mode activation + ruleset injection on every prompt), add the hooks from `hooks/qoder-hooks.json` to your `.qoder/settings.json` and set `PROMPT_STUDIO_DIR` to the checkout path.
+
+### Cursor / Windsurf / Cline / Aider / Kiro / Zed (instruction-only)
+
+Copy the rules file into the target host's rules directory:
+
+```bash
+cp .cursor/rules/*.mdc /path/to/project/.cursor/rules/       # Cursor
+```
+
+For Windsurf / Cline / Kiro, drop `skills/lean/SKILL.md` at:
+- Windsurf: `.windsurf/rules/lean.md`
+- Cline: `.clinerules/lean.md`
+- Kiro: `.kiro/steering/lean.md` (or `~/.kiro/steering/` global)
+
+These paths keep always-on guidance; they don't add mode switches or hooks.
+
+### JetBrains / VS Code Copilot Chat / Amp / Jules / CodeWhale / Antigravity
+
+All read `AGENTS.md` from the repo root. Running from a Prompt-Studio checkout works with no setup. For a global install, drop the file at `~/.copilot/copilot-instructions.md` (Copilot Chat) or the equivalent home path per host.
+
+### Slash commands (all hosts that support skills)
 
 | Command                          | Effect |
 |----------------------------------|--------|
-| `/prompt-studio:lean lite`       | Switch to minimum-payload intensity |
+| `/prompt-studio:lean lite`       | Minimum-payload intensity |
 | `/prompt-studio:lean full`       | Default intensity |
 | `/prompt-studio:lean ultra`      | Maximum guidance |
 | `/prompt-studio:lean off` or `stop lean` | Deactivate for the session |
+| `/prompt-studio:lean-help`       | Quick reference, one-shot, no state change |
+| `/prompt-studio:compress <file>` | Compress a memory file (CLAUDE.md, todos, prefs) into lean format |
 
-Short form (`/lean lite`, `/lean full`, `/lean ultra`, `stop lean`) also works because the hook parses the raw prompt on `UserPromptSubmit` — even when Claude Code's slash-command menu doesn't recognize the un-namespaced form.
+Short form (`/lean lite`, `stop lean`) also works — the `UserPromptSubmit` hook parses the raw prompt even when the slash-command menu doesn't recognize the un-namespaced form.
 
 Mode persists in `~/.claude/.lean-active` across turns. Subagents spawned via `Task` inherit the ruleset through the `SubagentStart` hook — no drift.
 
 ### Troubleshooting
 
-- `/lean` shows "command not found" in the menu → use `/prompt-studio:lean` instead; the raw `/lean X` form still works if you submit it as a message.
-- Hooks don't fire → confirm `python3` is on `PATH` (`which python3`), then check `~/.claude/plugins/*/prompt-studio/hooks/` exists after install.
-- Nothing in system context after `SessionStart` → run `python3 hooks/lean_activate.py` manually from the plugin dir; if it prints the ruleset, the manifest is wired correctly and the issue is Claude Code hook execution.
+- `/lean` shows "command not found" → use `/prompt-studio:lean`; the short form works if you submit it as a plain message.
+- Hooks don't fire → confirm `python3` is on `PATH` (`which python3`).
+- Nothing in system context after `SessionStart` → run `python3 hooks/lean_activate.py` from the plugin dir; if it prints the ruleset, the manifest is wired correctly and the issue is at the host's hook layer.
 
-### Requirements
+### Uninstall
 
-- `python3` on `PATH` (all hooks are Python; no Node runtime needed).
-- Read access to the cloned repo (hooks resolve `${CLAUDE_PLUGIN_ROOT}/app/skills/lean/SKILL.md`).
+| Host | Command |
+|------|---------|
+| Claude Code  | `/plugin remove prompt-studio` |
+| Codex        | `codex plugin remove prompt-studio` |
+| Devin CLI    | `devin plugins remove prompt-studio` |
+| Copilot CLI  | `copilot plugin uninstall prompt-studio` |
+| Cursor / Windsurf / Cline / Qoder / Kiro | Delete the copied rule file |
+
+Then `rm -f ~/.claude/.lean-active` to clear the mode flag.
+
+## Versioning
+
+SemVer 2.0.0 across the monorepo. All seven version-carrying files ship in lockstep — the API, frontend, Claude Code plugin, Codex adapter, Devin adapter, Qoder adapter, and MCP server all share one version.
+
+```bash
+pdm run check_versions   # verifies alignment
+```
+
+Bump workflow: edit all seven files, `git tag vX.Y.Z`, push. See `scripts/check_versions.py`.
 
 ## Database Schema
 
@@ -307,7 +315,7 @@ Two tables, managed by Alembic:
 - Preview text, mode, model, overall score
 - FK to `prompts.id` for drill-down
 
-Embedding dimension defaults to `1536` (OpenAI `text-embedding-3-small`). Change `EMBEDDING_DIM` in `models.py` and generate a new migration to use a different model (e.g. `384` for `all-MiniLM-L6-v2`).
+Embedding dimension defaults to `1536` (OpenAI `text-embedding-3-small`). Change `EMBEDDING_DIM` in `app/db/models.py` and generate a new migration to use a different model (e.g. `384` for `all-MiniLM-L6-v2`).
 
 ## Environment Variables
 
@@ -316,6 +324,23 @@ Create a `.env` file at the project root:
 ```env
 DATABASE_URL=postgresql://promptstudio:promptstudio@localhost:5432/promptstudio
 ```
+
+## FAQ
+
+**Can I use it with [caveman](https://github.com/JuliusBrussee/caveman)?**
+Yes. Caveman compresses what the agent *says*; Lean shrinks what it *builds*. No overlap — Lean stays out of your prose, Caveman leaves code byte-for-byte exact.
+
+**Does it need a config file?**
+No. `~/.claude/.lean-active` is written by the hook itself; nothing else is required.
+
+**Which hosts support the mode switch?**
+Any host with `SessionStart` + `UserPromptSubmit` hook events: Claude Code, Codex, Copilot CLI. Cursor / Windsurf / Cline / Kiro get the always-on ruleset but not the runtime mode knob.
+
+**Where does the persona actually live?**
+`skills/lean/SKILL.md`. Everything else — plugin, MCP, benchmark arms, FastAPI adapters — reads from that one file via `app/services/skills.py::get_lean_instructions()`.
+
+**How do I bump the version?**
+`pdm run check_versions` first to confirm alignment, edit all seven files (three JSON adapter manifests, three TOML/JSON project files, one frontend `package.json`), tag `vX.Y.Z`.
 
 ## Contributing
 

@@ -7,7 +7,7 @@ authors = [
     {name = "Utkarsh Upadhyay", email = "btoshine774@gmail.com"},
 ]
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 dependencies = [
     # API
     "fastapi[all]>=0.115.0",
@@ -41,6 +41,7 @@ fmt            = "ruff format ."
 typecheck      = "mypy app"
 security       = "bandit -r app"
 coverage       = "pytest --cov=app --cov-branch --cov-fail-under=70"
+check_versions = "python scripts/check_versions.py"
 
 [tool.pdm.dev-dependencies]
 test = [

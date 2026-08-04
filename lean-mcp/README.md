@@ -53,5 +53,5 @@ is thin: it maps the prompt and tool onto `build_instructions`.
 
 ## License
 
-MIT — see repo root. Author: [utk2103](https://github.com/utk2103).
+Apache-2.0 — see repo root. Author: [utk2103](https://github.com/utk2103).
 Repo: <https://github.com/utk2103/Prompt-Studio>.
