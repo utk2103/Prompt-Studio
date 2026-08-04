@@ -31,6 +31,9 @@ Prompt Studio gives you a structured workflow for writing better prompts:
 - **Model compatibility** — cross-model evaluation matrix with format adaptation notes
 - **Adaptive wizard** — 7-question guided flow that auto-generates a well-structured prompt
 - **History** — persistent session history backed by PostgreSQL; semantic search via pgvector
+- **Lean persona layer** — ponytail-style prompt injection: one `SKILL.md`, mode-filtered (`lite`/`full`/`ultra`), served through per-provider adapters with Anthropic prompt-cache markers
+- **`lean-mcp`** — MCP stdio server exposing the same ruleset as a prompt + tool for MCP hosts
+- **Benchmarks** — Python harness comparing `baseline` / `caveman` / `lean-{lite,full,ultra}` arms across LOC, tokens, cost, latency
 
 ## Tech Stack
 
@@ -45,19 +48,27 @@ Prompt Studio gives you a structured workflow for writing better prompts:
 
 ```
 Prompt-Studio/
-├── main.py                  # FastAPI app — all routes
-├── models.py                # SQLAlchemy ORM models (PromptRecord, HistoryRecord)
-├── database.py              # Engine, session, Base
-├── alembic.ini              # Alembic config
-├── alembic/
-│   ├── env.py               # Migration environment (reads DATABASE_URL)
-│   └── versions/
-│       └── 001_initial_schema.py   # Creates prompts + history tables with ivfflat index
-├── pyproject.toml           # Project metadata + PDM scripts
-├── requirements.txt         # Pip-compatible dep list
-├── dockerfile               # Multi-stage Docker build for the API
-├── docker-ignore.yml        # docker-compose: db (pgvector) + api + frontend
-├── .dockerignore
+├── app/
+│   ├── main.py              # FastAPI app init + router registration
+│   ├── config.py            # Settings (env-driven)
+│   ├── lifespan.py          # Startup/shutdown hooks
+│   ├── routes/              # Thin API endpoints
+│   ├── services/            # Business logic
+│   │   ├── skills.py        # Lean persona loader + mode filter (lite/full/ultra)
+│   │   ├── formats.py       # Per-provider adapters + build_messages()
+│   │   ├── models_registry.py
+│   │   ├── analyze.py       compress.py scoring.py tokens.py optimize.py wizard.py
+│   ├── schemas/             # Pydantic request/response models
+│   ├── db/                  # Engine, session, ORM
+│   └── skills/lean/SKILL.md # Persona source of truth
+├── lean-mcp/                # MCP stdio server (Python, FastMCP)
+│   ├── server.py            instructions.py test/
+├── benchmarks/              # Python arm harness (baseline / caveman / lean-*)
+│   ├── benchmark.py         arms/ agentic/ test_arms.py
+├── alembic/                 # DB migrations
+├── tests/                   # pytest suite (unit + integration)
+├── pyproject.toml           requirements.txt
+├── dockerfile               docker-ignore.yml
 └── frontend/
     ├── Dockerfile           # Multi-stage Next.js build
     ├── app/                 # Next.js App Router
@@ -86,7 +97,7 @@ Prompt-Studio/
 **Backend**
 ```bash
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000
 # API docs → http://localhost:8000/docs
 ```
 
@@ -178,6 +189,61 @@ Each prompt is evaluated across 7 dimensions (0–100), producing an overall sco
 | Llama 3.1 70B | Meta | 128K | Llama Template |
 | Mistral Large | Mistral AI | 32K | Mistral Native |
 | DeepSeek-V3 | DeepSeek | 64K | ChatML |
+
+## Lean Persona Layer
+
+Prompt-Studio ships a ponytail-inspired **Lean** persona (`app/skills/lean/SKILL.md`) that reduces LLM output size, cost, and latency. One source of truth, filtered per intensity by `app/services/skills.py::get_lean_instructions(mode)` and injected in the system slot by per-provider adapters in `app/services/formats.py`.
+
+```python
+from app.services.formats import build_messages
+
+msgs = build_messages(
+    text="Write a Python function that validates emails.",
+    model_id="claude-3-5",
+    intensity="full",   # "lite" | "full" | "ultra"
+)
+# msgs[0] → system slot with LEAN persona + cache_control: ephemeral
+# msgs[1] → user turn
+```
+
+| Intensity | When to use |
+|-----------|-------------|
+| `lite`    | Minimum payload — small models, tight context, cost-sensitive calls |
+| `full`    | Default — production balance of guidance and payload |
+| `ultra`   | Maximum guidance — long agentic sessions with over-build risk |
+
+The system slot is marked `cache_control: ephemeral` so the persona charges once per Anthropic prompt-cache TTL, not per turn. If `SKILL.md` cannot be read, a hardcoded fallback ships instead — the layer never fails silent.
+
+## lean-mcp
+
+Standalone MCP stdio server (`lean-mcp/`) that serves the same Lean ruleset for MCP hosts whose only injection point is the prompt menu.
+
+```bash
+cd lean-mcp && pip install -e .
+python server.py
+```
+
+Client config:
+```json
+{ "mcpServers": { "lean": { "command": "python", "args": ["lean-mcp/server.py"] } } }
+```
+
+Exposes prompt `lean` and tool `lean_instructions`, both accepting `mode`. Zero drift with the FastAPI adapters — both call `get_lean_instructions()`.
+
+## Benchmarks
+
+`benchmarks/` measures the Lean persona's impact on LOC / tokens / cost / latency across five arms: `baseline`, `caveman`, `lean-lite`, `lean-full`, `lean-ultra`.
+
+```bash
+# Local, no API key
+python benchmarks/benchmark.py --backend ollama --model llama3.2 --repeat 3
+
+# Anthropic
+ANTHROPIC_API_KEY=sk-ant-... python benchmarks/benchmark.py \
+    --backend anthropic --model claude-haiku-4-5-20251001 --repeat 5
+```
+
+Includes the standard five tasks (email, debounce, csv-sum, countdown, rate-limit) plus two Prompt-Studio-specific tasks that exercise the per-provider adapters (`chatml2xml`, `cost-est`). Agentic sub-harness (`benchmarks/agentic/`) runs the arms as full Claude Code sessions against a real repo.
 
 ## Database Schema
 
