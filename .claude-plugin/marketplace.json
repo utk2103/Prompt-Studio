@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "prompt-studio",
-  "description": "Lazy senior dev mode for AI agents. The best code is the code you never wrote.",
+  "description": "AI-powered prompt engineering workbench: analyze, score, optimize, and cut LLM tokens with the Lean persona layer.",
   "owner": {
     "name": "utk2103",
     "url": "https://github.com/utk2103"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "prompt-studio",
-      "description": "Forces the laziest solution that works. YAGNI, stdlib first, one line over fifty.",
+      "description": "Prompt engineering workbench with a Lean persona layer that cuts LLM output size, cost, and latency.",
       "source": "./",
       "category": "productivity"
     }
