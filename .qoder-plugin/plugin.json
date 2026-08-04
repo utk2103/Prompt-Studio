@@ -1,0 +1,16 @@
+{
+  "name": "prompt-studio",
+  "version": "4.8.4",
+  "description": "Lazy senior dev mode. Forces the simplest, shortest solution that actually works: YAGNI, stdlib first, no unrequested abstractions.",
+  "author": {
+    "name": "utk2103",
+    "url": "https://github.com/utk2103"
+  },
+  "homepage": "https://github.com/utk2103/prompt-studio",
+  "repository": "https://github.com/utk2103/prompt-studio",
+  "license": "MIT",
+  "keywords": ["yagni", "minimalism", "code-review", "productivity"],
+  "skills": "./skills/",
+  "rules": "./.qoder/rules/",
+  "hooks": "./hooks/qoder-hooks.json"
+}

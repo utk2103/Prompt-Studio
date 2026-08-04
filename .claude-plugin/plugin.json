@@ -1,0 +1,10 @@
+{
+  "name": "prompt-studio",
+  "version": "4.8.4",
+  "description": "Lazy senior dev mode. Forces the simplest, shortest solution that actually works: YAGNI, stdlib first, no unrequested abstractions.",
+  "author": {
+    "name": "utk2103",
+    "url": "https://github.com/utk2103"
+  },
+  "hooks": "./hooks/claude-codex-hooks.json"
+}
