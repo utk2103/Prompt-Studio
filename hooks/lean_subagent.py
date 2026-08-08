@@ -12,12 +12,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _lean_common import get_lean_instructions, read_mode
+from _lean_common import OFF_MODE, get_lean_instructions, read_mode
 
 
 def main() -> None:
     try:
-        text = get_lean_instructions(read_mode())
+        mode = read_mode()
+        if mode == OFF_MODE:
+            return
+        text = get_lean_instructions(mode)
         sys.stdout.write(json.dumps({
             "hookSpecificOutput": {
                 "hookEventName": "SubagentStart",

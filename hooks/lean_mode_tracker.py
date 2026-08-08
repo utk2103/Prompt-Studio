@@ -29,7 +29,7 @@ def main() -> None:
     prompt = str(payload.get("prompt", ""))
 
     if _OFF.match(prompt):
-        clear_mode()
+        clear_mode()  # writes "off"; persists across sessions (#488)
         emit_prompt_submit(system_message="LEAN MODE OFF")
         return
 

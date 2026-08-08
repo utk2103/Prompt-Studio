@@ -7,12 +7,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _lean_common import emit_session_context, get_lean_instructions, read_mode, write_mode
+from _lean_common import OFF_MODE, emit_session_context, get_lean_instructions, read_mode, write_mode
 
 
 def main() -> None:
     mode = read_mode()
     write_mode(mode)
+    if mode == OFF_MODE:
+        return
     try:
         emit_session_context(get_lean_instructions(mode))
     except Exception:

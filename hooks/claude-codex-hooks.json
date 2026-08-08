@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/lean_activate.py\"",
+            "command": "sh -c 'command -v python3 >/dev/null 2>&1 && exec python3 \"$CLAUDE_PLUGIN_ROOT/hooks/lean_activate.py\" || exec python \"$CLAUDE_PLUGIN_ROOT/hooks/lean_activate.py\"'",
             "commandWindows": "python \"$env:CLAUDE_PLUGIN_ROOT\\hooks\\lean_activate.py\"",
             "timeout": 5,
             "statusMessage": "Loading Lean mode..."
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/lean_subagent.py\"",
+            "command": "sh -c 'command -v python3 >/dev/null 2>&1 && exec python3 \"$CLAUDE_PLUGIN_ROOT/hooks/lean_subagent.py\" || exec python \"$CLAUDE_PLUGIN_ROOT/hooks/lean_subagent.py\"'",
             "commandWindows": "python \"$env:CLAUDE_PLUGIN_ROOT\\hooks\\lean_subagent.py\"",
             "timeout": 5,
             "statusMessage": "Loading Lean mode..."
@@ -32,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/lean_mode_tracker.py\"",
+            "command": "sh -c 'command -v python3 >/dev/null 2>&1 && exec python3 \"$CLAUDE_PLUGIN_ROOT/hooks/lean_mode_tracker.py\" || exec python \"$CLAUDE_PLUGIN_ROOT/hooks/lean_mode_tracker.py\"'",
             "commandWindows": "python \"$env:CLAUDE_PLUGIN_ROOT\\hooks\\lean_mode_tracker.py\"",
             "timeout": 5,
             "statusMessage": "Tracking Lean mode..."
