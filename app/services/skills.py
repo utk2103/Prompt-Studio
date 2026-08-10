@@ -11,6 +11,8 @@ SKILL_PATH = Path(__file__).resolve().parent.parent.parent / "skills" / "lean" /
 _TABLE_LABEL = re.compile(r"^\|\s*\*\*(.+?)\*\*\s*\|")
 _EXAMPLE_LABEL = re.compile(r'^-\s*([^:]+):\s*"')
 _FRONTMATTER = re.compile(r"^---[\s\S]*?---\s*")
+_LEVEL_OPEN = re.compile(r"^\s*<!--\s*level:\s*([a-z, ]+)\s*-->\s*$", re.IGNORECASE)
+_LEVEL_CLOSE = re.compile(r"^\s*<!--\s*/level\s*-->\s*$", re.IGNORECASE)
 
 
 def normalize_mode(mode: str | None) -> str:
@@ -22,7 +24,22 @@ def filter_skill_body_for_mode(body: str, mode: str) -> str:
     effective = normalize_mode(mode)
     body = _FRONTMATTER.sub("", body or "", count=1)
     out = []
+    # #664: block-level markers `<!-- level: X -->` … `<!-- /level -->` skip
+    # content that doesn't match the active mode. Comma-separated allows
+    # sharing a block across levels (e.g. `<!-- level: full, ultra -->`).
+    skip_stack: list[bool] = []
     for line in body.splitlines():
+        open_m = _LEVEL_OPEN.match(line)
+        if open_m:
+            allowed = {t.strip().lower() for t in open_m.group(1).split(",") if t.strip()}
+            skip_stack.append(effective not in allowed)
+            continue
+        if _LEVEL_CLOSE.match(line):
+            if skip_stack:
+                skip_stack.pop()
+            continue
+        if any(skip_stack):
+            continue
         for pat in (_TABLE_LABEL, _EXAMPLE_LABEL):
             m = pat.match(line)
             if m:

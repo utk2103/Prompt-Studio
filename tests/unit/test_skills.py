@@ -34,14 +34,15 @@ def test_filter_keeps_non_mode_bullets():
     assert 'lite: "example"' not in out
 
 
-def test_get_instructions_smaller_for_lite_than_full():
+def test_get_instructions_scopes_content_per_mode():
     lite = get_lean_instructions("lite")
     full = get_lean_instructions("full")
     ultra = get_lean_instructions("ultra")
     assert lite and full and ultra
-    # lite ships strictly fewer or equal tokens than full (mode filter dropped rows)
-    assert len(lite) <= len(full)
     assert all("LEAN MODE ACTIVE" in x for x in (lite, full, ultra))
+    # #664: block-level stance markers ship only to their own mode.
+    assert "Lite stance" in lite and "Lite stance" not in full and "Lite stance" not in ultra
+    assert "Ultra stance" in ultra and "Ultra stance" not in full and "Ultra stance" not in lite
 
 
 def test_build_messages_puts_persona_in_system_slot():

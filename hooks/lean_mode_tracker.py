@@ -16,11 +16,13 @@ from _lean_common import (
     clear_mode,
     emit_prompt_submit,
     get_lean_instructions,
+    read_mode,
     read_stdin_json,
     write_mode,
 )
 
 _CMD = re.compile(r"^\s*/(?:prompt-studio:)?lean\s+(\S+)\s*$", re.IGNORECASE)
+_BARE = re.compile(r"^\s*/(?:prompt-studio:)?lean\s*$", re.IGNORECASE)
 _OFF = re.compile(r"^\s*(stop\s+lean|normal\s+mode|/(?:prompt-studio:)?lean\s+off)\s*$", re.IGNORECASE)
 
 
@@ -31,6 +33,11 @@ def main() -> None:
     if _OFF.match(prompt):
         clear_mode()  # writes "off"; persists across sessions (#488)
         emit_prompt_submit(system_message="LEAN MODE OFF")
+        return
+
+    if _BARE.match(prompt):
+        # ponytail #584: bare /lean reports the current mode instead of a no-op.
+        emit_prompt_submit(system_message=f"LEAN MODE: {read_mode()}")
         return
 
     m = _CMD.match(prompt)
