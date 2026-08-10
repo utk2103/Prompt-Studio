@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -60,12 +61,13 @@ def test_mode_tracker_accepts_namespaced_form(tmp_path):
     assert (tmp_path / ".lean-active").read_text().strip() == "full"
 
 
-def test_mode_tracker_off_clears_state(tmp_path):
+def test_mode_tracker_off_persists_state(tmp_path):
+    # #488: "off" persists across sessions instead of deleting the flag file.
     (tmp_path / ".lean-active").write_text("full")
     res = _run("lean_mode_tracker.py", tmp_path, stdin=json.dumps({"prompt": "stop lean"}))
     payload = json.loads(res.stdout)
     assert payload["hookSpecificOutput"]["systemMessage"] == "LEAN MODE OFF"
-    assert not (tmp_path / ".lean-active").exists()
+    assert (tmp_path / ".lean-active").read_text().strip() == "off"
 
 
 def test_subagent_injects_ruleset(tmp_path):
@@ -78,11 +80,12 @@ def test_subagent_injects_ruleset(tmp_path):
 
 def test_manifest_paths_resolve():
     manifest = json.loads((HOOKS / "claude-codex-hooks.json").read_text())
+    # Commands use $CLAUDE_PLUGIN_ROOT/hooks/<script>.py (with or without braces,
+    # in sh -c wrappers or PowerShell). Extract every referenced script path.
+    ref = re.compile(r"\$(?:\{)?CLAUDE_PLUGIN_ROOT(?:\})?[/\\]hooks[/\\]([A-Za-z0-9_.-]+\.py)")
     for events in manifest["hooks"].values():
         for group in events:
             for h in group["hooks"]:
-                # Extract the script path from the shell command (strip python3 + quotes).
-                cmd = h["command"]
-                assert "${CLAUDE_PLUGIN_ROOT}/hooks/" in cmd
-                script = cmd.split("hooks/")[1].rstrip('" ')
-                assert (HOOKS / script).exists(), f"missing hook script: {script}"
+                for cmd in (h.get("command", ""), h.get("commandWindows", "")):
+                    for script in ref.findall(cmd):
+                        assert (HOOKS / script).exists(), f"missing hook script: {script}"
