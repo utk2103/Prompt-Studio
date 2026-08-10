@@ -26,8 +26,24 @@ _BARE = re.compile(r"^\s*/(?:prompt-studio:)?lean\s*$", re.IGNORECASE)
 _OFF = re.compile(r"^\s*(stop\s+lean|normal\s+mode|/(?:prompt-studio:)?lean\s+off)\s*$", re.IGNORECASE)
 
 
+def _probe_log(payload: dict) -> None:
+    """TEMP: log every hook invocation to verify which prompts trigger UserPromptSubmit."""
+    import json as _j
+    import time as _t
+    try:
+        with open("/tmp/lean-usage-probe.log", "a", encoding="utf-8") as _f:
+            _f.write(_j.dumps({
+                "ts": _t.time(),
+                "prompt": (payload.get("prompt") or "")[:200],
+                "keys": sorted(payload.keys()),
+            }) + "\n")
+    except OSError:
+        pass
+
+
 def main() -> None:
     payload = read_stdin_json()
+    _probe_log(payload)
     prompt = str(payload.get("prompt", ""))
 
     if _OFF.match(prompt):
