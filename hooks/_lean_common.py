@@ -17,27 +17,44 @@ if str(_ROOT) not in sys.path:
 
 from app.services.skills import MODES, get_lean_instructions, normalize_mode  # noqa: E402
 
-_STATE_DIR = Path(os.environ.get("CLAUDE_STATE_DIR", Path.home() / ".claude"))
-_STATE_FILE = _STATE_DIR / ".lean-active"
+OFF_MODE = "off"
+
+
+def _state_dir() -> Path:
+    # ponytail #34: honor CLAUDE_CONFIG_DIR (Claude Code standard) too.
+    for var in ("CLAUDE_STATE_DIR", "CLAUDE_CONFIG_DIR"):
+        v = os.environ.get(var)
+        if v:
+            return Path(v)
+    return Path.home() / ".claude"
+
+
+_STATE_FILE = _state_dir() / ".lean-active"
 
 
 def read_mode() -> str:
     try:
-        return normalize_mode(_STATE_FILE.read_text(encoding="utf-8").strip())
+        raw = _STATE_FILE.read_text(encoding="utf-8").strip().lower()
     except OSError:
         return "full"
+    if raw == OFF_MODE:
+        return OFF_MODE
+    return normalize_mode(raw)
 
 
 def write_mode(mode: str) -> None:
-    _STATE_DIR.mkdir(parents=True, exist_ok=True)
-    _STATE_FILE.write_text(normalize_mode(mode), encoding="utf-8")
+    m = OFF_MODE if mode == OFF_MODE else normalize_mode(mode)
+    try:
+        _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _STATE_FILE.write_text(m, encoding="utf-8")
+    except OSError:
+        # ponytail #386: disk full / perm error must not crash the hook.
+        pass
 
 
 def clear_mode() -> None:
-    try:
-        _STATE_FILE.unlink()
-    except OSError:
-        pass
+    # #488: "off" persists across sessions instead of deleting the flag.
+    write_mode(OFF_MODE)
 
 
 def read_stdin_json() -> dict:
@@ -68,6 +85,7 @@ def emit_prompt_submit(system_message: str = "", additional_context: str = "") -
 
 __all__ = [
     "MODES",
+    "OFF_MODE",
     "get_lean_instructions",
     "normalize_mode",
     "read_mode",
