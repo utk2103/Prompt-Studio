@@ -109,21 +109,104 @@ def call_anthropic(model: str, messages: list[dict]) -> tuple[str, dict]:
 
 # Per-1M-token USD pricing. Extend as models change.
 _PRICING = {
-    "claude-haiku-4-5-20251001":  {"in": 1.00, "out": 5.00},
-    "claude-sonnet-4-6":          {"in": 3.00, "out": 15.00},
+    "claude-haiku-4-5-20251001":  {"in": 1.00,  "out":  5.00},
+    "claude-sonnet-4-6":          {"in": 3.00,  "out": 15.00},
     "claude-opus-4-8":            {"in": 15.00, "out": 75.00},
+    "gemini-2.5-flash-lite":      {"in": 0.10,  "out":  0.40},
+    "gemini-2.5-flash":           {"in": 0.30,  "out":  2.50},
+    "gemini-2.5-pro":             {"in": 1.25,  "out": 10.00},
+    "gpt-4o-mini":                {"in": 0.15,  "out":  0.60},
+    "gpt-4o":                     {"in": 2.50,  "out": 10.00},
+    "gpt-4.1-mini":               {"in": 0.40,  "out":  1.60},
+    "gpt-4.1":                    {"in": 2.00,  "out":  8.00},
+    "gpt-5-mini":                 {"in": 0.25,  "out":  2.00},
+    "gpt-5":                      {"in": 1.25,  "out": 10.00},
 }
 
 
-def _anthropic_cost(model: str, usage: dict) -> float | None:
+def call_openai(model: str, messages: list[dict]) -> tuple[str, dict]:
+    key = os.environ.get("OPENAI_API_KEY")
+    if not key:
+        raise RuntimeError("OPENAI_API_KEY not set")
+    payload = {"model": model, "messages": messages, "temperature": 1.0}
+    t0 = time.time()
+    data = _post(
+        "https://api.openai.com/v1/chat/completions",
+        payload,
+        headers={"Authorization": f"Bearer {key}"},
+    )
+    choice = (data.get("choices") or [{}])[0]
+    text = (choice.get("message") or {}).get("content", "") or ""
+    usage = data.get("usage", {}) or {}
+    in_tok  = usage.get("prompt_tokens", 0)
+    out_tok = usage.get("completion_tokens", 0)
+    return text, {
+        "elapsed":       round(time.time() - t0, 2),
+        "input_tokens":  in_tok,
+        "output_tokens": out_tok,
+        "cost":          _cost(model, in_tok, out_tok),
+    }
+
+
+def _cost(model: str, in_tok: int, out_tok: int) -> float | None:
     p = _PRICING.get(model)
-    if not p or not usage:
+    if not p:
         return None
-    return round(usage.get("input_tokens", 0) / 1e6 * p["in"] + usage.get("output_tokens", 0) / 1e6 * p["out"], 6)
+    return round(in_tok / 1e6 * p["in"] + out_tok / 1e6 * p["out"], 6)
+
+
+def _anthropic_cost(model: str, usage: dict) -> float | None:
+    if not usage:
+        return None
+    return _cost(model, usage.get("input_tokens", 0), usage.get("output_tokens", 0))
+
+
+def call_gemini(model: str, messages: list[dict]) -> tuple[str, dict]:
+    key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if not key:
+        raise RuntimeError("GEMINI_API_KEY (or GOOGLE_API_KEY) not set")
+    system_text = ""
+    contents = []
+    for m in messages:
+        if m["role"] == "system":
+            system_text = m["content"]
+        else:
+            role = "model" if m["role"] == "assistant" else "user"
+            contents.append({"role": role, "parts": [{"text": m["content"]}]})
+    payload = {
+        "contents": contents,
+        "generationConfig": {"maxOutputTokens": 8192, "temperature": 1.0},
+    }
+    if system_text:
+        payload["systemInstruction"] = {"parts": [{"text": system_text}]}
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    t0 = time.time()
+    data = _post(url + f"?key={urllib.parse.quote(key)}", payload, headers={})
+    cands = data.get("candidates") or []
+    text = ""
+    if cands:
+        for part in cands[0].get("content", {}).get("parts", []) or []:
+            text += part.get("text", "")
+    usage = data.get("usageMetadata", {}) or {}
+    in_tok  = usage.get("promptTokenCount", 0)
+    out_tok = usage.get("candidatesTokenCount", 0)
+    return text, {
+        "elapsed":       round(time.time() - t0, 2),
+        "input_tokens":  in_tok,
+        "output_tokens": out_tok,
+        "cost":          _cost(model, in_tok, out_tok),
+    }
 
 
 def run(backend: str, model: str, repeat: int, base_url: str) -> dict:
-    call = (lambda msgs: call_ollama(model, msgs, base_url)) if backend == "ollama" else (lambda msgs: call_anthropic(model, msgs))
+    if backend == "ollama":
+        call = lambda msgs: call_ollama(model, msgs, base_url)
+    elif backend == "gemini":
+        call = lambda msgs: call_gemini(model, msgs)
+    elif backend == "openai":
+        call = lambda msgs: call_openai(model, msgs)
+    else:
+        call = lambda msgs: call_anthropic(model, msgs)
     task_ids = [t[0] for t in TASKS]
     results = {arm: {t: [] for t in task_ids} for arm in ARMS}
     total = len(ARMS) * len(TASKS) * repeat
@@ -169,7 +252,7 @@ def summarize(results: dict, model: str, repeat: int) -> None:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Lean benchmark driver")
-    p.add_argument("--backend", choices=["anthropic", "ollama"], default="ollama")
+    p.add_argument("--backend", choices=["anthropic", "ollama", "gemini", "openai"], default="ollama")
     p.add_argument("--model", default="llama3.2")
     p.add_argument("--repeat", type=int, default=1)
     p.add_argument("--ollama-url", default="http://localhost:11434")
