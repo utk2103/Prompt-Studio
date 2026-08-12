@@ -1,4 +1,4 @@
-name: Publish
+name: CI & Publish
 
 on:
   push:
@@ -13,50 +13,69 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-asyncio httpx
+
       - name: Run pytest
         run: pytest -v
 
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
     defaults:
       run:
         working-directory: frontend
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
       - name: Build
         run: npm run build
 
   build:
     name: Build package
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [backend]
+    needs: [backend, frontend]
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11'
+
       - name: Install build
         run: python -m pip install --upgrade build
+
       - name: Build package
         run: python -m build
+
+      - name: Check package
+        run: python -m pip install twine && python -m twine check dist/*
+
       - name: Upload distributions
         uses: actions/upload-artifact@v4
         with:
@@ -68,16 +87,20 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [build]
     runs-on: ubuntu-latest
+
     environment:
       name: pypi
       url: https://pypi.org/p/promptstudio-ai
+
     permissions:
       id-token: write
+
     steps:
       - name: Download distributions
         uses: actions/download-artifact@v4
         with:
           name: python-package-distributions
           path: dist/
+
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
