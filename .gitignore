@@ -152,6 +152,7 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+**/.DS_Store
 
 # runtime artifacts
 dump.rdb
@@ -162,3 +163,4 @@ caveman/*
 caveman
 
 benchmarks/results/*
+.DS_Store

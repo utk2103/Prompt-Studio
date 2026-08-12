@@ -1,5 +1,5 @@
 [project]
-name = "prompt-studio"
+name = "promptstudio-ai"
 version = "1.0.0"
 readme = "README.md"
 description = "AI-powered prompt engineering assistant: scoring, validation, optimization, and semantic search."
@@ -7,12 +7,13 @@ authors = [
     {name = "Utkarsh Upadhyay", email = "btoshine774@gmail.com"},
 ]
 requires-python = ">=3.11"
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 dependencies = [
     # API
     "fastapi[all]>=0.115.0",
-    "uvicorn[standard]>=0.30.6",
-    "pydantic>=2.8.2",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
     "pydantic-settings>=2.4.0",
     "python-multipart>=0.0.9",
     "python-dotenv>=1.0.1",
@@ -21,7 +22,7 @@ dependencies = [
     "alembic>=1.14.0",
     "psycopg2-binary>=2.9.10",
     # Vector DB
-    "pgvector>=0.3.5",
+    "pgvector>=0.3.6",
 ]
 
 [project.urls]
@@ -43,7 +44,7 @@ security       = "bandit -r app"
 coverage       = "pytest --cov=app --cov-branch --cov-fail-under=70"
 check_versions = "python scripts/check_versions.py"
 
-[tool.pdm.dev-dependencies]
+[dependency-groups]
 test = [
     "pytest>=8.0.0",
     "httpx>=0.27.0",
@@ -75,6 +76,7 @@ ignore_missing_imports = true
 addopts = "-ra"
 testpaths = ["tests"]
 pythonpath = ["."]
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 branch = true
