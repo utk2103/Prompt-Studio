@@ -36,6 +36,8 @@ const INITIAL: AppState = {
   apiOnline: false,
   loading: false,
   modal: null,
+  memoryBackend: 'local',
+  supermemoryAvailable: false,
 };
 
 export default function StudioPage() {
@@ -53,9 +55,10 @@ export default function StudioPage() {
   }, []);
 
   useEffect(() => {
-    initAPI().then(({ apiOnline, models, wizardQ, history }) => {
-      update({ apiOnline, models, wizardQ, history });
+    initAPI().then(({ apiOnline, models, wizardQ, history, supermemoryAvailable }) => {
+      update({ apiOnline, models, wizardQ, history, supermemoryAvailable });
       if (apiOnline) toast('API connected. Enhanced mode active.', 'ok');
+      if (supermemoryAvailable) toast('Supermemory backend available. Toggle in History.', 'info');
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

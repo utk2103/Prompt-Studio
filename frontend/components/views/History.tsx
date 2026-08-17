@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import type { AppState, ToastType } from '@/lib/types';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, memoryHeader } from '@/lib/api';
 import { scoreLocal, issuesLocal } from '@/lib/scoring';
 import ViewHeader from './ViewHeader';
 
@@ -11,30 +12,142 @@ interface Props {
   toast: (msg: string, type?: ToastType) => void;
 }
 
+interface SearchHit {
+  id?: string;
+  content: string;
+  score?: number;
+  metadata?: Record<string, unknown>;
+}
+
 const TINT = (s: number) => s >= 75 ? '#5b8f3d' : s >= 50 ? '#c9a227' : '#c8342a';
 
 export default function History({ state, update, toast }: Props) {
+  const [query, setQuery] = useState('');
+  const [hits, setHits] = useState<SearchHit[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const setBackend = (b: 'local' | 'supermemory') => {
+    if (b === 'supermemory' && !state.supermemoryAvailable) {
+      toast('Supermemory unavailable — set SUPERMEMORY_API_KEY on the backend.', 'warn');
+      return;
+    }
+    update({ memoryBackend: b });
+    toast(`Memory backend → ${b}`, 'ok');
+  };
+
+  const runSearch = async () => {
+    if (!query.trim()) return;
+    if (state.memoryBackend !== 'supermemory') {
+      toast('Semantic search requires the supermemory backend.', 'warn');
+      return;
+    }
+    setSearching(true);
+    try {
+      const r = await apiFetch<{ supported: boolean; results: SearchHit[] }>(
+        `/history/search?q=${encodeURIComponent(query)}&limit=8`,
+        'GET', undefined, memoryHeader('supermemory'),
+      );
+      setHits(r.results);
+      if (!r.results.length) toast('No matches yet — try after storing a few prompts.', 'info');
+    } catch (e) {
+      toast('Search failed: ' + (e as Error).message, 'err');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const backendPill = (b: 'local' | 'supermemory') => {
+    const active = state.memoryBackend === b;
+    const disabled = b === 'supermemory' && !state.supermemoryAvailable;
+    return (
+      <button
+        key={b}
+        onClick={() => setBackend(b)}
+        disabled={disabled}
+        title={disabled ? 'Set SUPERMEMORY_API_KEY on backend to enable' : ''}
+        style={{
+          padding: '6px 14px',
+          background: active ? 'var(--d-accent)' : 'transparent',
+          color: active ? '#fff' : disabled ? 'var(--d-ink-mute)' : 'var(--d-ink)',
+          border: '1px solid ' + (active ? 'var(--d-accent)' : 'var(--d-line)'),
+          fontFamily: 'var(--font-jetbrains), monospace',
+          fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.55 : 1,
+        }}
+      >
+        {b}
+      </button>
+    );
+  };
+
   return (
     <div>
       <ViewHeader
         marker="/V.07 [X 74.8, Y 51.3]"
         title="Session History"
-        subtitle="Recent analysis sessions. Click Restore to reload prompt, mode, and model. API-persisted where available."
+        subtitle="Recent analysis sessions. Toggle between local (in-process) and Supermemory (persistent + semantic search)."
       />
 
-      {state.apiOnline && (
-        <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span className="d-coord">API-PERSISTED · SURVIVES RELOAD</span>
+      <div style={{ marginBottom: 20, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+        <span className="d-coord">/MEMORY BACKEND</span>
+        {backendPill('local')}
+        {backendPill('supermemory')}
+        {state.apiOnline && (
           <button
             onClick={async () => {
-              try { const h = await apiFetch<typeof state.history>('/history'); update({ history: h }); toast('History refreshed', 'ok'); }
-              catch { toast('Refresh failed', 'err'); }
+              try {
+                const h = await apiFetch<typeof state.history>('/history', 'GET', undefined, memoryHeader(state.memoryBackend));
+                update({ history: h });
+                toast('History refreshed', 'ok');
+              } catch { toast('Refresh failed', 'err'); }
             }}
             className="d-cta-ghost"
-            style={{ padding: '6px 14px', fontSize: 10 }}
+            style={{ padding: '6px 14px', fontSize: 10, marginLeft: 'auto' }}
           >
             ↻ Refresh
           </button>
+        )}
+      </div>
+
+      {state.memoryBackend === 'supermemory' && (
+        <div style={{ marginBottom: 24, padding: 18, border: '1px solid var(--d-line)', background: 'var(--d-bg-alt)' }}>
+          <div className="d-coord" style={{ marginBottom: 10 }}>/SEMANTIC RECALL</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') runSearch(); }}
+              placeholder="Ask: what did I try for email validation prompts?"
+              style={{
+                flex: 1, background: 'var(--d-bg)', color: 'var(--d-ink)',
+                border: '1px solid var(--d-line)', padding: '10px 14px',
+                fontSize: 14, fontFamily: 'var(--font-manrope), sans-serif', outline: 'none',
+              }}
+            />
+            <button onClick={runSearch} className="d-cta" style={{ border: 0 }} disabled={searching}>
+              {searching ? '…' : 'Recall'}
+            </button>
+          </div>
+          {hits.length > 0 && (
+            <div style={{ marginTop: 14, border: '1px solid var(--d-line)' }}>
+              {hits.map((h, i) => (
+                <div key={h.id || i} style={{ padding: '12px 16px', borderTop: i === 0 ? 0 : '1px solid var(--d-line)' }}>
+                  <div style={{
+                    display: 'flex', justifyContent: 'space-between',
+                    fontFamily: 'var(--font-jetbrains), monospace', fontSize: 10.5,
+                    letterSpacing: '0.12em', color: 'var(--d-ink-mute)', marginBottom: 6,
+                  }}>
+                    <span>#{i + 1}</span>
+                    {typeof h.score === 'number' && <span>score {h.score.toFixed(3)}</span>}
+                  </div>
+                  <div style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--d-ink)', whiteSpace: 'pre-wrap' }}>
+                    {h.content}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -86,7 +199,9 @@ export default function History({ state, update, toast }: Props) {
       {state.history.length > 0 && (
         <button
           onClick={async () => {
-            if (state.apiOnline) { try { await apiFetch('/history', 'DELETE'); } catch { } }
+            if (state.apiOnline) {
+              try { await apiFetch('/history', 'DELETE', undefined, memoryHeader(state.memoryBackend)); } catch { }
+            }
             update({ history: [] });
             toast('History cleared', 'warn');
           }}
