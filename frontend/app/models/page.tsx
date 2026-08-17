@@ -28,7 +28,7 @@ export default function ModelsPage() {
       <PageHero
         eyebrow="/MODELS [X 44.8, Y 18.2]"
         title={<>Seven models, <span style={{ color: 'var(--d-ink-mute)' }}>one adapter surface.</span></>}
-        subtitle="Each model has a native format — ChatML, XML tags, Gemini native, Llama template, Mistral native. Prompt Studio adapts your prompt into every one and reports the cross-model compatibility matrix in one call."
+        subtitle="Each model has a native format · ChatML, XML tags, Gemini native, Llama template, Mistral native. Prompt Studio adapts your prompt into every one and reports the cross-model compatibility matrix in one call."
         coordX="44.8"
         coordY="18.2"
       />

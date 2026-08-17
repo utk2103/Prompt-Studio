@@ -7,8 +7,8 @@ export default function McpPage() {
     <Shell>
       <PageHero
         eyebrow="/MCP [X 34.2, Y 40.8]"
-        title={<><span style={{ color: 'var(--d-ink-mute)' }}>lean-mcp — </span>same rules, prompt-menu injection.</>}
-        subtitle="A standalone MCP stdio server that serves the Lean ruleset for hosts whose only injection point is the prompt menu. Zero drift with the FastAPI adapters — both call get_lean_instructions()."
+        title={<><span style={{ color: 'var(--d-ink-mute)' }}>lean-mcp · </span>same rules, prompt-menu injection.</>}
+        subtitle="A standalone MCP stdio server that serves the Lean ruleset for hosts whose only injection point is the prompt menu. Zero drift with the FastAPI adapters · both call get_lean_instructions()."
         coordX="34.2"
         coordY="40.8"
       />

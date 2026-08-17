@@ -3,17 +3,17 @@ import Shell from '@/components/marketing/Shell';
 import PageHero from '@/components/marketing/PageHero';
 
 const INTENSITIES = [
-  { level: 'lite', when: 'Minimum payload — small models, tight context, cost-sensitive calls.' },
-  { level: 'full', when: 'Default — production balance of guidance and payload.' },
-  { level: 'ultra', when: 'Maximum guidance — long agentic sessions with over-build risk.' },
+  { level: 'lite', when: 'Minimum payload · small models, tight context, cost-sensitive calls.' },
+  { level: 'full', when: 'Default · production balance of guidance and payload.' },
+  { level: 'ultra', when: 'Maximum guidance · long agentic sessions with over-build risk.' },
 ];
 
 const HOSTS = [
-  ['Claude Code', 'Plugin — /plugin install prompt-studio@prompt-studio'],
-  ['Codex', 'Plugin — codex plugin add prompt-studio@prompt-studio'],
-  ['GitHub Copilot CLI', 'Plugin — copilot plugin install prompt-studio@prompt-studio'],
-  ['Devin CLI', 'Plugin — devin plugins install utk2103/Prompt-Studio'],
-  ['Qoder', 'Rules — .qoder/rules + hooks/qoder-hooks.json'],
+  ['Claude Code', 'Plugin · /plugin install prompt-studio@prompt-studio'],
+  ['Codex', 'Plugin · codex plugin add prompt-studio@prompt-studio'],
+  ['GitHub Copilot CLI', 'Plugin · copilot plugin install prompt-studio@prompt-studio'],
+  ['Devin CLI', 'Plugin · devin plugins install utk2103/Prompt-Studio'],
+  ['Qoder', 'Rules · .qoder/rules + hooks/qoder-hooks.json'],
   ['Cursor / Windsurf / Cline / Kiro / Zed', 'Rules file drop into host rules directory'],
   ['JetBrains / VS Code Copilot Chat / Amp / Jules / CodeWhale / Antigravity', 'AGENTS.md at repo root'],
 ];
@@ -24,7 +24,7 @@ export default function LeanPage() {
       <PageHero
         eyebrow="/LEAN [X 08.4, Y 12.6]"
         title={<><span style={{ color: 'var(--d-ink-mute)' }}>The persona layer </span>your agent already speaks.</>}
-        subtitle="One SKILL.md. Filtered per intensity by get_lean_instructions(mode) and injected in the system slot by per-provider adapters with Anthropic prompt-cache markers. Cuts LLM output size, cost, and latency — measured, not implied."
+        subtitle="One SKILL.md. Filtered per intensity by get_lean_instructions(mode) and injected in the system slot by per-provider adapters with Anthropic prompt-cache markers. Cuts LLM output size, cost, and latency · measured, not implied."
         coordX="08.4"
         coordY="12.6"
       />
@@ -34,10 +34,10 @@ export default function LeanPage() {
           <div>
             <div className="d-coord" style={{ marginBottom: 14 }}>/L.01 One source of truth</div>
             <h2 className="font-display" style={{ fontSize: 'clamp(32px, 4vw, 52px)', letterSpacing: '-0.025em', lineHeight: 1.05, marginBottom: 20 }}>
-              skills/lean/SKILL.md — <span style={{ color: 'var(--d-ink-mute)' }}>read once, shipped everywhere</span>
+              skills/lean/SKILL.md · <span style={{ color: 'var(--d-ink-mute)' }}>read once, shipped everywhere</span>
             </h2>
             <p style={{ fontSize: 15, color: 'var(--d-ink-soft)', lineHeight: 1.55 }}>
-              The plugin, MCP server, benchmark arms, and FastAPI adapters all read the same file. Bump it once — everything downstream picks it up. The system slot is marked <code style={{ background: 'var(--d-bg-alt)', padding: '2px 6px' }}>cache_control: ephemeral</code>, so the persona charges once per Anthropic prompt-cache TTL, not per turn.
+              The plugin, MCP server, benchmark arms, and FastAPI adapters all read the same file. Bump it once · everything downstream picks it up. The system slot is marked <code style={{ background: 'var(--d-bg-alt)', padding: '2px 6px' }}>cache_control: ephemeral</code>, so the persona charges once per Anthropic prompt-cache TTL, not per turn.
             </p>
           </div>
           <pre style={{ background: 'var(--d-dark)', color: 'var(--d-dark-ink)', padding: 24, fontSize: 12, lineHeight: 1.6, overflow: 'auto', fontFamily: 'var(--font-jetbrains), monospace' }}>

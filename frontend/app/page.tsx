@@ -71,9 +71,14 @@ export default function Landing() {
           <p style={{ marginTop: 28, maxWidth: 460, fontSize: 15, lineHeight: 1.55, color: 'var(--d-ink-soft)' }}>
             We build the tooling and the persona layer that make LLM output shorter, cheaper, and closer to what you actually meant.
           </p>
-          <div style={{ marginTop: 40, display: 'flex', alignItems: 'center', gap: 32 }}>
+          <div style={{ marginTop: 40, display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
             <Link href="/studio" className="d-cta">Launch Studio</Link>
+            <a href="https://pypi.org/project/promptstudio-ai/" target="_blank" rel="noopener" className="d-cta-ghost">Install from PyPI</a>
             <Coord x="47.6" y="57.2" />
+          </div>
+          <div style={{ marginTop: 24, display: 'inline-flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: 'var(--d-dark)', color: 'var(--d-dark-ink)', fontFamily: 'var(--font-jetbrains), monospace', fontSize: 12 }}>
+            <span style={{ color: 'var(--d-ink-mute)' }}>$</span>
+            <span>pip install promptstudio-ai</span>
           </div>
         </div>
         {/* Corner cross */}
@@ -154,7 +159,7 @@ export default function Landing() {
             subtitle="Prompt-Menu Server"
             image={<McpArt />}
             headline="The only prompt-menu MCP for the Lean ruleset in production."
-            body="Standalone stdio server for MCP hosts whose only injection point is the prompt menu. Zero drift with the FastAPI adapters — both call the same get_lean_instructions()."
+            body="Standalone stdio server for MCP hosts whose only injection point is the prompt menu. Zero drift with the FastAPI adapters · both call the same get_lean_instructions()."
             cta="See MCP"
             href="/mcp"
           />
@@ -273,7 +278,7 @@ function McpArt() {
         <rect x="110" y="10" width="90" height="80" fill="#8a7d6c" />
         <rect x="30" y="100" width="80" height="60" fill="#e6c7a3" />
         <rect x="120" y="100" width="80" height="60" fill="#a49484" />
-        <text x="110" y="90" textAnchor="middle" fill="#0d0d0d" fontFamily="serif" fontSize="14" fontStyle="italic">stdio</text>
+        <text x="110" y="90" textAnchor="middle" fill="#0d0d0d" fontFamily="serif" fontSize="14" fontStyle="italic">studio</text>
       </g>
     </svg>
   );

@@ -15,7 +15,9 @@ export default function Nav() {
   return (
     <>
       <div className="d-topbar">
-        Lean v1.0 is live — the persona layer that ships across every major agent host
+        <a href="https://pypi.org/project/promptstudio-ai/" target="_blank" rel="noopener" style={{ color: 'inherit' }}>
+          Prompt Studio v1.0 is live on PyPI · pip install promptstudio-ai
+        </a>
       </div>
       <nav className="d-nav">
         <div className="d-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 32px' }}>

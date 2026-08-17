@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { AppState, ToastType } from '@/lib/types';
 import { apiFetch } from '@/lib/api';
 import { scoreLocal, issuesLocal, normalizeIssues } from '@/lib/scoring';
+import ViewHeader from './ViewHeader';
 
 interface Props {
   state: AppState;
@@ -66,72 +67,107 @@ export default function Wizard({ state, update, toast }: Props) {
 
   return (
     <div>
-      <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #004411' }}>
-        <div className="glow" style={{ color: '#33ff66', fontSize: 14, fontWeight: 700, marginBottom: 3, letterSpacing: '.5px' }}>► ADAPTIVE WIZARD</div>
-        <span style={{ color: '#007722', fontSize: 9 }}>Answer guided questions to auto-generate an optimized prompt</span>
-      </div>
+      <ViewHeader
+        marker="/V.06 [X 62.4, Y 44.9]"
+        title="Adaptive Wizard"
+        subtitle="Answer seven guided questions to auto-generate an optimized prompt from your intent."
+      />
 
-      <div style={{ marginBottom: 12 }}>
-        <span style={{ color: '#007722', fontSize: 10, display: 'block', marginBottom: 4 }}>PROGRESS: Step {state.wizardStep + 1} of {qs.length}</span>
-        <div style={{ width: '100%', height: 3, background: '#004411', overflow: 'hidden', marginBottom: 6 }}>
-          <div ref={fillRef} className="bar-fill" style={{ width: 0, height: '100%', background: '#00cc44' }} />
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+          <span className="d-coord">STEP {state.wizardStep + 1} OF {qs.length}</span>
+          <span style={{ fontFamily: 'var(--font-jetbrains), monospace', fontSize: 11, color: 'var(--d-ink-mute)' }}>
+            {Math.round((state.wizardStep + 1) / qs.length * 100)}% complete
+          </span>
         </div>
-        <div>
+        <div style={{ width: '100%', height: 4, background: 'var(--d-line)', overflow: 'hidden', marginBottom: 12 }}>
+          <div ref={fillRef} className="bar-fill" style={{ width: 0, height: '100%', background: 'var(--d-accent)' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
           {qs.map((_, i) => (
-            <span key={i} style={{ color: i < state.wizardStep ? '#33ff66' : i === state.wizardStep ? '#00ccff' : '#004411', fontSize: 10 }}>
-              {i < state.wizardStep ? '●' : i === state.wizardStep ? '◈' : '○'}{i < qs.length - 1 ? ' ' : ''}
-            </span>
+            <span key={i} style={{
+              width: 10, height: 10, borderRadius: '50%',
+              background: i < state.wizardStep ? 'var(--d-accent)' : i === state.wizardStep ? 'var(--d-ink)' : 'transparent',
+              border: '1px solid ' + (i <= state.wizardStep ? 'var(--d-accent)' : 'var(--d-line)'),
+            }} />
           ))}
         </div>
       </div>
 
-      <div style={{ padding: '10px 12px', border: '1px solid #00cc44', background: '#010f01', marginBottom: 12 }}>
-        <span style={{ color: '#004411', fontSize: 9, display: 'block', marginBottom: 4, letterSpacing: '.5px' }}>QUESTION {state.wizardStep + 1} OF {qs.length}</span>
-        <div style={{ color: '#e8ffe8', fontSize: 12, fontWeight: 600, marginBottom: 3, lineHeight: '1.4' }}>{q.q}</div>
-        <span style={{ color: '#007722', fontSize: 9 }}>Select an option or enter a custom answer below</span>
+      <div style={{ padding: 28, border: '1px solid var(--d-line)', background: 'var(--d-bg-alt)', marginBottom: 24 }}>
+        <div className="d-coord" style={{ marginBottom: 10 }}>QUESTION {state.wizardStep + 1}</div>
+        <div className="font-display" style={{ fontSize: 28, letterSpacing: '-0.02em', lineHeight: 1.15, marginBottom: 6 }}>{q.q}</div>
+        <span style={{ fontSize: 13, color: 'var(--d-ink-mute)' }}>Select an option or enter a custom answer below.</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
         {q.opts.map(opt => (
-          <div
+          <button
             key={opt}
             onClick={() => advance(q.id, opt)}
-            style={{ padding: '7px 10px', border: '1px solid #003311', cursor: 'pointer', fontSize: 10, color: '#00cc44', background: '#010f01', letterSpacing: '.2px', lineHeight: '1.4', transition: 'all .1s' }}
-            onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = '#004411'; el.style.borderColor = '#00cc44'; }}
-            onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = '#010f01'; el.style.borderColor = '#003311'; }}
+            style={{
+              padding: '14px 18px',
+              border: '1px solid var(--d-line)',
+              background: 'var(--d-bg)',
+              color: 'var(--d-ink)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-manrope), sans-serif',
+              fontSize: 14,
+              lineHeight: 1.4,
+              textAlign: 'left',
+              transition: 'all 0.12s',
+            }}
+            onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'var(--d-accent)'; el.style.background = 'var(--d-bg-alt)'; }}
+            onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'var(--d-line)'; el.style.background = 'var(--d-bg)'; }}
           >
             {opt}
-          </div>
+          </button>
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
         <input
           value={custom}
           onChange={e => setCustom(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && custom.trim()) advance(q.id, custom.trim()); }}
           placeholder="Custom answer..."
-          style={{ flex: 1, background: '#050e05', color: '#e8ffe8', border: '1px solid #003311', padding: '5px 8px', fontSize: 10 }}
+          style={{
+            flex: 1,
+            background: 'var(--d-bg-alt)',
+            color: 'var(--d-ink)',
+            border: '1px solid var(--d-line)',
+            padding: '10px 14px',
+            fontSize: 14,
+            fontFamily: 'var(--font-manrope), sans-serif',
+            outline: 'none',
+          }}
         />
         <button
           onClick={() => { if (custom.trim()) advance(q.id, custom.trim()); }}
-          style={{ background: 'transparent', color: '#00cc44', border: '1px solid #00cc44', padding: '3px 10px', fontSize: 11 }}
-        >[ENTER]</button>
+          className="d-cta"
+          style={{ border: 0 }}
+        >
+          Enter
+        </button>
         {state.wizardStep > 0 && (
           <button
             onClick={() => update({ wizardStep: state.wizardStep - 1 })}
-            style={{ background: 'transparent', color: '#007722', border: '1px solid #007722', padding: '3px 10px', fontSize: 11 }}
-          >[← BACK]</button>
+            className="d-cta-ghost"
+          >
+            ← Back
+          </button>
         )}
       </div>
 
       {Object.keys(state.wizardAnswers).length > 0 && (
-        <div style={{ padding: '8px 10px', border: '1px solid #004411', background: '#010f01' }}>
-          <span style={{ color: '#007722', fontSize: 9, display: 'block', marginBottom: 4, letterSpacing: '.3px' }}>COLLECTED ANSWERS:</span>
+        <div style={{ padding: 20, border: '1px solid var(--d-line)', background: 'var(--d-bg-alt)' }}>
+          <div className="d-coord" style={{ marginBottom: 10 }}>COLLECTED ANSWERS</div>
           {Object.keys(state.wizardAnswers).map(k => (
-            <div key={k} style={{ fontSize: 9, marginBottom: 2 }}>
-              <span style={{ color: '#004411' }}>{k.toUpperCase()}:  </span>
-              <span style={{ color: '#00cc44' }}>{state.wizardAnswers[k]}</span>
+            <div key={k} style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 12, padding: '6px 0', fontSize: 13 }}>
+              <span style={{ fontFamily: 'var(--font-jetbrains), monospace', fontSize: 11, color: 'var(--d-ink-mute)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                {k}
+              </span>
+              <span style={{ color: 'var(--d-ink)' }}>{state.wizardAnswers[k]}</span>
             </div>
           ))}
         </div>

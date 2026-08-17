@@ -40,7 +40,7 @@ body {
   height: 100%;
   background: var(--d-bg);
   color: var(--d-ink);
-  font-family: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-manrope), 'Manrope', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -70,7 +70,7 @@ body {
 
 a { color: inherit; text-decoration: none; }
 
-/* Terminal palette scope — restores dark green shell for /studio */
+/* Terminal palette scope · restores dark green shell for /studio */
 .terminal {
   font-family: var(--font-jetbrains), 'JetBrains Mono', 'Courier New', monospace;
   background: var(--bg);
@@ -80,7 +80,7 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--font-jetbrains), 'JetBrains Mono', 'Courier New', monospace;
 }
 
-/* CRT scanlines — only inside terminal */
+/* CRT scanlines · only inside terminal */
 .terminal::before {
   content: '';
   position: fixed;
