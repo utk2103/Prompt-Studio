@@ -3,6 +3,19 @@
 @tailwind utilities;
 
 :root {
+  /* Decart-style marketing palette */
+  --d-bg: #f2ede4;
+  --d-bg-alt: #ede7dc;
+  --d-ink: #0d0d0d;
+  --d-ink-soft: #4a4a4a;
+  --d-ink-mute: #8a857c;
+  --d-line: #d8d1c3;
+  --d-accent: #2a3bff;
+  --d-accent-soft: rgba(42, 59, 255, 0.08);
+  --d-dark: #0f0f10;
+  --d-dark-ink: #d8d3c6;
+
+  /* Terminal palette (scoped under .terminal) */
   --g1: #33ff66;
   --g2: #00cc44;
   --g3: #007722;
@@ -17,7 +30,6 @@
 }
 
 * {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -26,13 +38,50 @@
 html,
 body {
   height: 100%;
-  background: var(--bg);
-  color: var(--g1);
-  overflow: hidden;
+  background: var(--d-bg);
+  color: var(--d-ink);
+  font-family: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* CRT scanlines */
-body::before {
+body {
+  min-height: 100vh;
+}
+
+.font-display {
+  font-family: var(--font-serif), 'Instrument Serif', 'Times New Roman', serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+}
+
+.font-mono {
+  font-family: var(--font-jetbrains), 'JetBrains Mono', 'Courier New', monospace;
+}
+
+.font-label {
+  font-family: var(--font-jetbrains), 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--d-accent);
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* Terminal palette scope — restores dark green shell for /studio */
+.terminal {
+  font-family: var(--font-jetbrains), 'JetBrains Mono', 'Courier New', monospace;
+  background: var(--bg);
+  color: var(--g1);
+}
+.terminal, .terminal * {
+  font-family: var(--font-jetbrains), 'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* CRT scanlines — only inside terminal */
+.terminal::before {
   content: '';
   position: fixed;
   inset: 0;
@@ -47,54 +96,31 @@ body::before {
   );
 }
 
-/* Scrollbars */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-track {
-  background: var(--bg);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--gd);
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--g3);
-}
+.terminal ::-webkit-scrollbar { width: 4px; height: 4px; }
+.terminal ::-webkit-scrollbar-track { background: var(--bg); }
+.terminal ::-webkit-scrollbar-thumb { background: var(--gd); }
+.terminal ::-webkit-scrollbar-thumb:hover { background: var(--g3); }
 
-textarea,
-input,
-select {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+.terminal textarea,
+.terminal input,
+.terminal select {
   outline: none;
 }
-textarea:focus,
-input:focus {
+.terminal textarea:focus,
+.terminal input:focus {
   box-shadow: 0 0 0 1px var(--g3) !important;
 }
-
-button {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+.terminal button {
   cursor: pointer;
   transition: all 0.12s ease;
 }
-button:active {
-  transform: scale(0.97);
-}
+.terminal button:active { transform: scale(0.97); }
 
-.bar-fill {
-  transition: width 0.55s cubic-bezier(0.4, 0, 0.2, 1);
-}
+.bar-fill { transition: width 0.55s cubic-bezier(0.4, 0, 0.2, 1); }
 
-.glow {
-  text-shadow: 0 0 9px rgba(51, 255, 102, 0.55);
-}
-.glow-y {
-  text-shadow: 0 0 9px rgba(255, 204, 0, 0.55);
-}
-.glow-c {
-  text-shadow: 0 0 9px rgba(0, 204, 255, 0.55);
-}
+.glow    { text-shadow: 0 0 9px rgba(51, 255, 102, 0.55); }
+.glow-y  { text-shadow: 0 0 9px rgba(255, 204, 0, 0.55); }
+.glow-c  { text-shadow: 0 0 9px rgba(0, 204, 255, 0.55); }
 
 @keyframes blink {
   0%, 100% { opacity: 1; }
@@ -104,19 +130,133 @@ button:active {
   from { transform: translateX(14px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
-
-.ldot {
-  display: inline-block;
-  animation: blink 0.7s step-end infinite;
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
+
+.ldot { display: inline-block; animation: blink 0.7s step-end infinite; }
 .ldot:nth-child(2) { animation-delay: 0.23s; }
 .ldot:nth-child(3) { animation-delay: 0.46s; }
+.cursor { display: inline-block; animation: blink 1s step-end infinite; }
+.toast-animate { animation: toast-in 0.18s ease; }
 
-.cursor {
+/* Marketing components */
+.d-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+@media (max-width: 640px) {
+  .d-container { padding: 0 20px; }
+}
+
+.d-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--d-bg);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+.d-nav a.nav-link {
+  font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--d-accent);
+  padding: 8px 12px;
+  transition: opacity 0.15s;
+}
+.d-nav a.nav-link:hover { opacity: 0.65; }
+
+.d-cta {
   display: inline-block;
-  animation: blink 1s step-end infinite;
+  font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  background: var(--d-accent);
+  color: #fff;
+  border: 1px solid var(--d-accent);
+  transition: background 0.15s;
+}
+.d-cta:hover { background: #1a2be6; }
+
+.d-cta-ghost {
+  display: inline-block;
+  font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  background: transparent;
+  color: var(--d-accent);
+  border: 1px solid var(--d-accent);
+  transition: all 0.15s;
+}
+.d-cta-ghost:hover { background: var(--d-accent-soft); }
+
+.d-topbar {
+  background: var(--d-dark);
+  color: var(--d-dark-ink);
+  font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  text-align: center;
 }
 
-.toast-animate {
-  animation: toast-in 0.18s ease;
+.d-section {
+  padding: 96px 0;
+  border-top: 1px solid var(--d-line);
 }
+.d-section:first-of-type { border-top: 0; }
+
+.d-hairline {
+  border: 0;
+  border-top: 1px solid var(--d-line);
+  margin: 0;
+}
+
+.d-hero-h {
+  font-size: clamp(48px, 8vw, 104px);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+}
+
+.d-feature-h {
+  font-size: clamp(36px, 5.5vw, 72px);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+}
+.d-feature-h .soft { color: var(--d-ink-mute); }
+
+.d-coord {
+  font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--d-accent);
+}
+
+.d-card {
+  background: var(--d-bg-alt);
+  padding: 40px 32px;
+  border: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+.d-card:hover { border-color: var(--d-line); }
+
+.d-footer {
+  background: var(--d-dark);
+  color: var(--d-dark-ink);
+  position: relative;
+  overflow: hidden;
+  border-top-left-radius: 40px;
+  border-top-right-radius: 40px;
+  margin-top: 80px;
+}
+.d-footer a { color: var(--d-dark-ink); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
+.d-footer a:hover { opacity: 0.7; }
