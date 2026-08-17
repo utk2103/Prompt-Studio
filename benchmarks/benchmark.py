@@ -8,7 +8,7 @@ Usage:
     ANTHROPIC_API_KEY=... python benchmarks/benchmark.py \\
         --backend anthropic --model claude-haiku-4-5-20251001 --repeat 5
 
-Tasks include the same five that the ponytail benchmark uses, plus two
+Tasks inspired from the same five that the ponytail benchmark uses, plus two
 Prompt-Studio-specific tasks that exercise the per-provider adapters in
 app/services/formats.py.
 """
