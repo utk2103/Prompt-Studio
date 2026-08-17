@@ -10,29 +10,23 @@ export default function StatusBar({ state }: Props) {
   const errs = state.issues.filter(x => x.t === 'ERR' || x.t === 'WARN').length;
   const infos = state.issues.filter(x => x.t === 'INFO').length;
 
+  const Cell = ({ children }: { children: React.ReactNode }) => (
+    <span style={{ fontFamily: 'var(--font-jetbrains), monospace', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--d-ink-soft)' }}>
+      {children}
+    </span>
+  );
+
   return (
-    <div style={{ background: '#010e01', borderTop: '1px solid #003311', padding: '4px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, height: 24 }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <span style={{ color: state.prompt ? '#00cc44' : '#007722', fontSize: 10 }}>
-          STATUS: {state.prompt ? 'PROMPT LOADED' : 'AWAITING INPUT'}
-        </span>
-        <span style={{ color: '#003311', fontSize: 9 }}>│</span>
-        <span style={{ color: state.scores ? '#00cc44' : '#007722', fontSize: 10 }}>
-          SCORE: {state.scores ? state.scores.overall + '/100' : 'N/A'}
-        </span>
-        <span style={{ color: '#003311', fontSize: 9 }}>│</span>
-        <span style={{ color: errs ? '#ffcc00' : '#007722', fontSize: 10 }}>
-          ISSUES: {errs} warn · {infos} info
-        </span>
+    <div style={{ borderTop: '1px solid var(--d-line)', background: 'var(--d-bg)', padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
+        <Cell>Status: {state.prompt ? 'Prompt loaded' : 'Awaiting input'}</Cell>
+        <Cell>Score: {state.scores ? `${state.scores.overall}/100` : 'N/A'}</Cell>
+        <Cell>Issues: {errs} warn · {infos} info</Cell>
       </div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <span style={{ color: '#004411', fontSize: 9 }}>HIST: {state.history.length}</span>
-        <span style={{ color: '#003311', fontSize: 9 }}>│</span>
-        <span style={{ color: state.apiOnline ? '#00cc44' : '#004411', fontSize: 9 }}>
-          API: {state.apiOnline ? 'LIVE' : 'LOCAL'}
-        </span>
-        <span style={{ color: '#003311', fontSize: 9 }}>│</span>
-        <span style={{ color: '#004411', fontSize: 9 }}>Prompt_Studio v1.0</span>
+      <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
+        <Cell>Hist: {state.history.length}</Cell>
+        <Cell>{state.apiOnline ? 'API Live' : 'Local'}</Cell>
+        <Cell>Prompt Studio v1.0</Cell>
       </div>
     </div>
   );

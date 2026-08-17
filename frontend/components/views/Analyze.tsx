@@ -1,10 +1,10 @@
 'use client';
 
-import { useRef } from 'react';
 import type { AppState, ToastType } from '@/lib/types';
 import { apiFetch } from '@/lib/api';
 import { scoreLocal, issuesLocal, normalizeIssues } from '@/lib/scoring';
 import { tok, wc } from '@/lib/utils';
+import ViewHeader from './ViewHeader';
 
 interface Props {
   state: AppState;
@@ -12,15 +12,25 @@ interface Props {
   toast: (msg: string, type?: ToastType) => void;
 }
 
-function Btn({ label, onClick, color = '#00cc44' }: { label: string; onClick: () => void; color?: string }) {
-  const ref = useRef<HTMLButtonElement>(null);
+function Btn({ label, onClick, variant = 'ghost' }: { label: string; onClick: () => void; variant?: 'solid' | 'ghost' | 'danger' }) {
+  const styles: Record<string, React.CSSProperties> = {
+    solid: { background: 'var(--d-accent)', color: '#fff', border: '1px solid var(--d-accent)' },
+    ghost: { background: 'transparent', color: 'var(--d-accent)', border: '1px solid var(--d-accent)' },
+    danger: { background: 'transparent', color: '#c8342a', border: '1px solid #c8342a' },
+  };
   return (
     <button
-      ref={ref}
       onClick={onClick}
-      style={{ background: 'transparent', color, border: `1px solid ${color}`, padding: '3px 10px', fontSize: 11, marginRight: 4, marginBottom: 3, fontWeight: 400, letterSpacing: '.3px' }}
-      onMouseEnter={() => { if (ref.current) { ref.current.style.background = color; ref.current.style.color = '#080c08'; ref.current.style.boxShadow = `0 0 6px ${color}40`; } }}
-      onMouseLeave={() => { if (ref.current) { ref.current.style.background = 'transparent'; ref.current.style.color = color; ref.current.style.boxShadow = 'none'; } }}
+      style={{
+        padding: '9px 18px',
+        fontFamily: 'var(--font-jetbrains), monospace',
+        fontSize: 11,
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+        cursor: 'pointer',
+        transition: 'opacity 0.15s',
+        ...styles[variant],
+      }}
     >
       {label}
     </button>
@@ -79,7 +89,7 @@ export default function Analyze({ state, update, toast }: Props) {
         const r = await apiFetch<{ optimized_prompt: string; score_delta: number; changes_applied: string[] }>('/optimize', 'POST', { prompt: state.prompt, mode: state.mode });
         prompt = r.optimized_prompt;
         const delta = r.score_delta > 0 ? '+' + r.score_delta : String(r.score_delta || 0);
-        toast('Optimized · score delta: ' + delta + ' pts · ' + r.changes_applied.length + ' change(s)', 'ok');
+        toast('Optimized. Score delta: ' + delta + ' pts, ' + r.changes_applied.length + ' change(s)', 'ok');
       } else {
         let out = state.prompt.trim();
         const ch: string[] = [];
@@ -116,8 +126,8 @@ export default function Analyze({ state, update, toast }: Props) {
     }
   };
 
-  const issueColor = (t: string) => t === 'ERR' ? '#ff4444' : t === 'WARN' ? '#ffcc00' : t === 'OK' ? '#33ff66' : '#007722';
-  const issuePrefix: Record<string, string> = { ERR: '[FAIL] ', WARN: '[WARN] ', OK: '[ OK ] ', INFO: '[INFO] ' };
+  const issueTint = (t: string) => t === 'ERR' ? '#c8342a' : t === 'WARN' ? '#c9a227' : t === 'OK' ? '#5b8f3d' : 'var(--d-accent)';
+  const issuePrefix: Record<string, string> = { ERR: '[FAIL]', WARN: '[WARN]', OK: '[ OK ]', INFO: '[INFO]' };
 
   const formatPreview = () => {
     if (!state.prompt) return '';
@@ -130,46 +140,66 @@ export default function Analyze({ state, update, toast }: Props) {
 
   return (
     <div>
-      <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #004411' }}>
-        <div className="glow" style={{ color: '#33ff66', fontSize: 14, fontWeight: 700, marginBottom: 3, letterSpacing: '.5px' }}>► PROMPT ANALYZER</div>
-        <span style={{ color: '#007722', fontSize: 9, letterSpacing: '.3px' }}>Validate format · detect issues · optimize & copy</span>
-      </div>
+      <ViewHeader
+        marker="/V.01 [X 12.4, Y 08.1]"
+        title="Prompt Analyzer"
+        subtitle="Validate format, detect issues, optimize and copy. Every action runs offline against a TypeScript fallback when the API is down."
+      />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <span style={{ color: '#007722', fontSize: 10, letterSpacing: '.3px' }}>PROMPT INPUT ▶</span>
-        <span style={{ color: '#004411', fontSize: 9 }}>{t} tokens  ·  {state.prompt.length} chars  ·  {wc(state.prompt)} words</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+        <span className="d-coord">/PROMPT INPUT</span>
+        <span style={{ fontFamily: 'var(--font-jetbrains), monospace', fontSize: 11, color: 'var(--d-ink-mute)' }}>
+          {t} tokens · {state.prompt.length} chars · {wc(state.prompt)} words
+        </span>
       </div>
 
       <textarea
-        style={{ width: '100%', background: '#030803', color: '#e8ffe8', border: '1px solid #003311', padding: '9px 10px', fontSize: 11, resize: 'vertical', minHeight: 110, lineHeight: '1.55', letterSpacing: '.2px', marginBottom: 8 }}
-        placeholder="Enter your prompt here... or use [→ WIZARD] to build one adaptively"
+        style={{
+          width: '100%',
+          background: 'var(--d-bg-alt)',
+          color: 'var(--d-ink)',
+          border: '1px solid var(--d-line)',
+          padding: '16px 18px',
+          fontSize: 14,
+          resize: 'vertical',
+          minHeight: 160,
+          lineHeight: 1.6,
+          fontFamily: 'var(--font-manrope), sans-serif',
+          marginBottom: 16,
+          outline: 'none',
+        }}
+        placeholder="Enter your prompt here, or use the Wizard to build one adaptively."
         value={state.prompt}
         onChange={e => handleInput(e.target.value)}
       />
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, marginBottom: 10 }}>
-        <Btn label="[ANALYZE]" onClick={handleAnalyze} color="#33ff66" />
-        <Btn label="[OPTIMIZE]" onClick={handleOptimize} color="#00ccff" />
-        <Btn label="[COMPRESS]" onClick={handleCompress} color="#ffcc00" />
-        <Btn label="[COPY]" onClick={() => { navigator.clipboard.writeText(state.prompt).catch(() => {}); toast('Copied to clipboard', 'ok'); }} color="#ffcc00" />
-        <Btn label="[CLEAR]" onClick={() => update({ prompt: '', scores: null, issues: [] })} color="#ff4444" />
-        <Btn label="[→ WIZARD]" onClick={() => update({ view: 'WIZARD', wizardStep: 0, wizardAnswers: {} })} color="#007722" />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+        <Btn label="Analyze"  onClick={handleAnalyze} variant="solid" />
+        <Btn label="Optimize" onClick={handleOptimize} />
+        <Btn label="Compress" onClick={handleCompress} />
+        <Btn label="Copy"     onClick={() => { navigator.clipboard.writeText(state.prompt).catch(() => {}); toast('Copied to clipboard', 'ok'); }} />
+        <Btn label="Clear"    onClick={() => update({ prompt: '', scores: null, issues: [] })} variant="danger" />
+        <Btn label="→ Wizard" onClick={() => update({ view: 'WIZARD', wizardStep: 0, wizardAnswers: {} })} />
       </div>
 
       {/* Issues */}
-      <div style={{ marginBottom: 10 }}>
+      <div style={{ marginBottom: 24 }}>
         {!state.issues.length && !state.prompt && (
-          <span style={{ color: '#004411', fontSize: 10, display: 'block', padding: '4px 0' }}>── Enter a prompt above to see validation results ──</span>
+          <span style={{ fontSize: 13, color: 'var(--d-ink-mute)', display: 'block' }}>Enter a prompt above to see validation results.</span>
         )}
         {state.issues.length > 0 && (
           <>
-            <span style={{ color: '#007722', fontSize: 10, display: 'block', marginBottom: 5, letterSpacing: '.3px' }}>DIAGNOSTIC OUTPUT:</span>
-            {state.issues.map((iss, i) => (
-              <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 3 }}>
-                <span style={{ color: issueColor(iss.t), fontSize: 10, flexShrink: 0, fontWeight: 600 }}>{issuePrefix[iss.t] || '[INFO] '}</span>
-                <span style={{ color: iss.t === 'OK' ? '#00cc44' : '#e8ffe8', fontSize: 10, lineHeight: '1.45' }}>{iss.m}</span>
-              </div>
-            ))}
+            <div className="d-coord" style={{ marginBottom: 10 }}>/DIAGNOSTICS</div>
+            <div style={{ border: '1px solid var(--d-line)' }}>
+              {state.issues.map((iss, i) => (
+                <div key={i} style={{ display: 'flex', gap: 12, padding: '10px 16px', borderTop: i === 0 ? 0 : '1px solid var(--d-line)', alignItems: 'baseline' }}>
+                  <span style={{ fontFamily: 'var(--font-jetbrains), monospace', fontSize: 11, color: issueTint(iss.t), fontWeight: 600, flexShrink: 0, letterSpacing: '0.08em' }}>
+                    {issuePrefix[iss.t] || '[INFO]'}
+                  </span>
+                  <span style={{ fontSize: 13, color: 'var(--d-ink)', lineHeight: 1.5 }}>{iss.m}</span>
+                </div>
+              ))}
+            </div>
           </>
         )}
       </div>
@@ -177,11 +207,21 @@ export default function Analyze({ state, update, toast }: Props) {
       {/* Format preview */}
       {state.prompt && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <span style={{ color: '#007722', fontSize: 9, letterSpacing: '.3px' }}>FORMAT PREVIEW → {curModel?.name.toUpperCase()}</span>
-            <span style={{ color: '#004411', fontSize: 9 }}>{curModel?.format}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+            <span className="d-coord">/FORMAT PREVIEW → {curModel?.name.toUpperCase()}</span>
+            <span style={{ fontFamily: 'var(--font-jetbrains), monospace', fontSize: 11, color: 'var(--d-ink-mute)' }}>{curModel?.format}</span>
           </div>
-          <pre style={{ background: '#030803', border: '1px solid #003311', padding: '8px 10px', fontSize: 10, color: '#e8ffe8', whiteSpace: 'pre-wrap', maxHeight: 100, overflowY: 'auto', lineHeight: '1.5', letterSpacing: '.2px' }}>
+          <pre style={{
+            background: 'var(--d-dark)',
+            color: 'var(--d-dark-ink)',
+            padding: '16px 18px',
+            fontSize: 12,
+            whiteSpace: 'pre-wrap',
+            maxHeight: 200,
+            overflowY: 'auto',
+            lineHeight: 1.6,
+            fontFamily: 'var(--font-jetbrains), monospace',
+          }}>
             {formatPreview()}
           </pre>
         </div>

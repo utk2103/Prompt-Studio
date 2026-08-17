@@ -11,23 +11,29 @@ export default function Header({ state }: Props) {
   const m = state.models.find(x => x.id === state.model) || state.models[1];
   const t = tok(state.prompt);
   const pct = m ? (t / m.context * 100).toFixed(1) : '0.0';
-  const tc = t > (m?.context || 1) * 0.8 ? '#ff4444' : t > (m?.context || 1) * 0.5 ? '#ffcc00' : '#00cc44';
+  const warn = t > (m?.context || 1) * 0.8;
+
+  const Cell = ({ label, value, accent }: { label: string; value: string; accent?: boolean }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+      <span style={{ fontFamily: 'var(--font-jetbrains), monospace', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--d-ink-mute)' }}>
+        {label}
+      </span>
+      <span style={{ fontFamily: 'var(--font-jetbrains), monospace', fontSize: 12, color: accent ? 'var(--d-accent)' : 'var(--d-ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {value}
+      </span>
+    </div>
+  );
 
   return (
-    <div style={{ background: '#010e01', borderBottom: '1px solid #003311', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, height: 36 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span className="glow" style={{ color: '#33ff66', fontSize: 14, fontWeight: 700, letterSpacing: 1.5 }}>◈ Prompt_Studio</span>
-        <span style={{ color: '#004411', fontSize: 10, letterSpacing: '.5px' }}>v1.0</span>
-        <span style={{ color: '#003311', fontSize: 10 }}>│</span>
-        <span className="glow-y" style={{ color: '#ffcc00', fontSize: 10, letterSpacing: '.3px' }}>MODE: {state.mode}</span>
-        <span style={{ color: '#003311', fontSize: 10 }}>│</span>
-        <span className="glow-c" style={{ color: '#00ccff', fontSize: 10, letterSpacing: '.3px' }}>MODEL: {m?.name}</span>
-      </div>
+    <div style={{ borderTop: '1px solid var(--d-line)', borderBottom: '1px solid var(--d-line)', background: 'var(--d-bg-alt)', padding: '12px 24px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: 32, alignItems: 'center' }}>
+      <Cell label="Mode" value={state.mode} />
+      <Cell label="Model" value={m?.name || '·'} accent />
+      <Cell label="Tokens" value={`${t} / ${m ? fmtN(m.context) : '·'} (${pct}%)`} />
+      <Cell label="Context" value={warn ? 'NEAR LIMIT' : 'HEADROOM OK'} accent={warn} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ color: tc, fontSize: 10 }}>TOKENS: {t} / {m ? fmtN(m.context) : '—'} ({pct}%)</span>
-        <span style={{ color: '#003311', fontSize: 10 }}>│</span>
-        <span style={{ color: state.apiOnline ? '#00cc44' : '#004411', fontSize: 10, letterSpacing: '.3px' }}>
-          API: {state.apiOnline ? '● LIVE' : '○ LOCAL'}
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: state.apiOnline ? 'var(--d-accent)' : 'var(--d-line)' }} />
+        <span style={{ fontFamily: 'var(--font-jetbrains), monospace', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--d-ink-soft)' }}>
+          {state.apiOnline ? 'API Live' : 'Local Fallback'}
         </span>
       </div>
     </div>
