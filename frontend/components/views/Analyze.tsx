@@ -73,7 +73,24 @@ export default function Analyze({ state, update, toast }: Props) {
       } else {
         history = [{ ...entry, id: Math.random().toString(36).slice(2, 8) }, ...history.slice(0, 9)];
       }
-      update({ scores, issues, recs, history, view: 'SCORE', loading: false });
+      const summary = scores
+        ? `Overall: ${scores.overall}/100 (${scores.grade} — ${scores.label})\n\n` +
+          `Dimensions:\n` +
+          `  Clarity          ${scores.clarity}\n` +
+          `  Specificity      ${scores.specificity}\n` +
+          `  Context          ${scores.context}\n` +
+          `  Format           ${scores.format}\n` +
+          `  Mode alignment   ${scores.mode_alignment}\n` +
+          `  Token efficiency ${scores.token_efficiency}\n` +
+          `  Constraints      ${scores.constraints}\n\n` +
+          (issues.length ? `Issues (${issues.length}):\n` + issues.map(i => `  [${i.t}] ${i.m}`).join('\n') + '\n\n' : '') +
+          `--- Prompt ---\n${state.prompt}`
+        : state.prompt;
+      update({
+        scores, issues, recs, history,
+        view: 'SCORE', loading: false,
+        modal: { title: 'Analysis Result', prompt: summary },
+      });
     } catch (e: unknown) {
       toast('Analysis error: ' + (e as Error).message, 'err');
       update({ loading: false });

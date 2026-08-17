@@ -1,6 +1,6 @@
 <div align= "center">
 <p align="center">
-  <img width="320" height="320" src="/public/prompt-studio.png" alt="Material Bread logo" style="margin-right:20px;">
+  <img width="180" height="180" src="public/prompt-studio-logo.svg" alt="Prompt Studio logo" style="margin-right:20px;">
 </p>
 <h1>Prompt Studio</h1>
 <br>
