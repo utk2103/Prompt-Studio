@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { AppState, ToastType } from '@/lib/types';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, minDelay } from '@/lib/api';
 import { scoreLocal, issuesLocal, normalizeIssues } from '@/lib/scoring';
 import ViewHeader from './ViewHeader';
 
@@ -35,6 +35,7 @@ export default function Wizard({ state, update, toast }: Props) {
     }
     update({ loading: true, loadingLabel: 'Generating' });
     try {
+      const wait = minDelay();
       let prompt = '';
       let scores = null;
       let issues = [];
@@ -57,6 +58,7 @@ export default function Wizard({ state, update, toast }: Props) {
         scores = scoreLocal(prompt, state.mode);
         issues = issuesLocal(prompt, state.mode);
       }
+      await wait;
       update({
         prompt, scores, issues, recs: [],
         wizardStep: 0, wizardAnswers: {},

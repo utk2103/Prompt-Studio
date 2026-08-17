@@ -1,7 +1,7 @@
 'use client';
 
 import type { AppState, ToastType } from '@/lib/types';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, minDelay } from '@/lib/api';
 import { scoreLocal, issuesLocal, normalizeIssues } from '@/lib/scoring';
 import { tok, wc } from '@/lib/utils';
 import ViewHeader from './ViewHeader';
@@ -54,18 +54,21 @@ export default function Analyze({ state, update, toast }: Props) {
       let scores = state.scores;
       let issues = state.issues;
       let recs: string[] = [];
-      if (state.apiOnline) {
-        const [data, sc] = await Promise.all([
-          apiFetch<{ scores: typeof scores; issues: { type: string; message: string }[] }>('/analyze', 'POST', { prompt: state.prompt, mode: state.mode, model_id: state.model }),
-          apiFetch<{ recommendations: string[] }>('/score', 'POST', { prompt: state.prompt, mode: state.mode }),
-        ]);
-        scores = data.scores;
-        issues = normalizeIssues(data.issues);
-        recs = sc.recommendations || [];
-      } else {
-        scores = scoreLocal(state.prompt, state.mode);
-        issues = issuesLocal(state.prompt, state.mode);
-      }
+      const work = (async () => {
+        if (state.apiOnline) {
+          const [data, sc] = await Promise.all([
+            apiFetch<{ scores: typeof scores; issues: { type: string; message: string }[] }>('/analyze', 'POST', { prompt: state.prompt, mode: state.mode, model_id: state.model }),
+            apiFetch<{ recommendations: string[] }>('/score', 'POST', { prompt: state.prompt, mode: state.mode }),
+          ]);
+          scores = data.scores;
+          issues = normalizeIssues(data.issues);
+          recs = sc.recommendations || [];
+        } else {
+          scores = scoreLocal(state.prompt, state.mode);
+          issues = issuesLocal(state.prompt, state.mode);
+        }
+      })();
+      await Promise.all([work, minDelay()]);
       const entry = { prompt_preview: state.prompt.slice(0, 80) + (state.prompt.length > 80 ? '...' : ''), mode: state.mode, model_id: state.model, score: scores?.overall, ts: Date.now() };
       let history = state.history;
       if (state.apiOnline) {
@@ -99,9 +102,11 @@ export default function Analyze({ state, update, toast }: Props) {
 
   const handleOptimize = async () => {
     if (!state.prompt.trim()) { toast('Enter a prompt first', 'warn'); return; }
+    const before = state.prompt;
     update({ loading: true, loadingLabel: 'Optimizing' });
     try {
       let prompt = state.prompt;
+      const wait = minDelay();
       if (state.apiOnline) {
         const r = await apiFetch<{ optimized_prompt: string; score_delta: number; changes_applied: string[] }>('/optimize', 'POST', { prompt: state.prompt, mode: state.mode });
         prompt = r.optimized_prompt;
@@ -117,12 +122,13 @@ export default function Analyze({ state, update, toast }: Props) {
         prompt = out;
         toast('Applied: ' + (ch.join(', ') || 'prompt already well-formed'), 'ok');
       }
+      await wait;
       update({
         prompt,
         scores: scoreLocal(prompt, state.mode),
         issues: issuesLocal(prompt, state.mode),
         loading: false,
-        modal: { title: 'Optimized Prompt', prompt },
+        modal: { title: 'Optimized Prompt', prompt, original: before },
       });
     } catch (e: unknown) {
       toast('Optimize failed: ' + (e as Error).message, 'err');
@@ -132,9 +138,11 @@ export default function Analyze({ state, update, toast }: Props) {
 
   const handleCompress = async () => {
     if (!state.prompt.trim()) { toast('Enter a prompt first', 'warn'); return; }
+    const before = state.prompt;
     update({ loading: true, loadingLabel: 'Compressing' });
     try {
       let out = state.prompt;
+      const wait = minDelay();
       if (state.apiOnline) {
         const r = await apiFetch<{ compressed: string; tokens_saved: number; savings_pct: number }>('/prompt/compress', 'POST', { prompt: state.prompt, mode: state.mode });
         out = r.compressed;
@@ -146,12 +154,13 @@ export default function Analyze({ state, update, toast }: Props) {
         const saved = tok(state.prompt) - tok(out);
         toast('Compressed: -' + saved + ' tokens', 'info');
       }
+      await wait;
       update({
         prompt: out,
         scores: scoreLocal(out, state.mode),
         issues: issuesLocal(out, state.mode),
         loading: false,
-        modal: { title: 'Compressed Prompt', prompt: out },
+        modal: { title: 'Compressed Prompt', prompt: out, original: before },
       });
     } catch {
       toast('Compress failed', 'err');

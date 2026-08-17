@@ -16,6 +16,10 @@ export async function apiFetch<T>(path: string, method = 'GET', body?: unknown):
   return r.json() as Promise<T>;
 }
 
+// Give LoadingState time to actually render. React 18 batches synchronous
+// updates, and cache-hot API calls return in <50ms — both collapse the loader.
+export const minDelay = (ms = 550) => new Promise<void>(r => setTimeout(r, ms));
+
 export async function initAPI(): Promise<{
   apiOnline: boolean;
   models: Model[];

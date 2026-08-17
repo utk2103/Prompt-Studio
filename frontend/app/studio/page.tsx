@@ -97,6 +97,7 @@ export default function StudioPage() {
         <PromptModal
           title={state.modal.title}
           prompt={state.modal.prompt}
+          original={state.modal.original}
           onClose={() => update({ modal: null })}
           onCopy={() => toast('Copied to clipboard', 'ok')}
         />
