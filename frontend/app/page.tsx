@@ -230,7 +230,7 @@ function ProductCard({
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 28 }}>
-        <div style={{ width: 46, height: 56, border: '1px solid var(--d-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--d-accent)', fontFamily: 'var(--font-serif), serif', fontSize: 32 }}>
+        <div style={{ width: 46, height: 56, border: '1px solid var(--d-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--d-accent)', fontFamily: 'var(--font-manrope), sans-serif', fontSize: 28, fontWeight: 700 }}>
           {initial}
         </div>
         <div style={{ paddingTop: 4 }}>
@@ -278,7 +278,7 @@ function McpArt() {
         <rect x="110" y="10" width="90" height="80" fill="#8a7d6c" />
         <rect x="30" y="100" width="80" height="60" fill="#e6c7a3" />
         <rect x="120" y="100" width="80" height="60" fill="#a49484" />
-        <text x="110" y="90" textAnchor="middle" fill="#0d0d0d" fontFamily="serif" fontSize="14" fontStyle="italic">studio</text>
+        <text x="110" y="90" textAnchor="middle" fill="#0d0d0d" fontFamily="var(--font-manrope), sans-serif" fontSize="14" fontWeight="600">studio</text>
       </g>
     </svg>
   );

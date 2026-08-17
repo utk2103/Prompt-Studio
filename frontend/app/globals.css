@@ -41,6 +41,7 @@ body {
   background: var(--d-bg);
   color: var(--d-ink);
   font-family: var(--font-manrope), 'Manrope', system-ui, -apple-system, sans-serif;
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -50,9 +51,10 @@ body {
 }
 
 .font-display {
-  font-family: var(--font-serif), 'Instrument Serif', 'Times New Roman', serif;
-  font-weight: 400;
-  letter-spacing: -0.02em;
+  font-family: var(--font-manrope), 'Manrope', system-ui, sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 700;
+  letter-spacing: -0.035em;
   line-height: 1.02;
 }
 
