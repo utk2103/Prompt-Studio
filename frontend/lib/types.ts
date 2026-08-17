@@ -61,6 +61,8 @@ export interface AppState {
   models: Model[];
   apiOnline: boolean;
   loading: boolean;
+  loadingLabel?: string;
+  modal: { title: string; prompt: string } | null;
 }
 
 export type ToastType = 'ok' | 'err' | 'warn' | 'info';

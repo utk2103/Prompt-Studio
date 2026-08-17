@@ -27,6 +27,20 @@
   --bg: #080c08;
   --bg2: #0b100b;
   --bd: #003311;
+
+  /* LoadingState aliases */
+  --ink: var(--d-ink);
+  --ink-3: var(--d-ink-mute);
+}
+
+@keyframes pixel-on {
+  0%, 100% { opacity: 0.15; }
+  40% { opacity: 1; }
+}
+
+@keyframes shimmer-text {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 * {

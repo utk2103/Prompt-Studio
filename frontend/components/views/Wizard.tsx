@@ -33,7 +33,7 @@ export default function Wizard({ state, update, toast }: Props) {
       setCustom('');
       return;
     }
-    update({ loading: true });
+    update({ loading: true, loadingLabel: 'Generating' });
     try {
       let prompt = '';
       let scores = null;
@@ -57,7 +57,12 @@ export default function Wizard({ state, update, toast }: Props) {
         scores = scoreLocal(prompt, state.mode);
         issues = issuesLocal(prompt, state.mode);
       }
-      update({ prompt, scores, issues, recs: [], wizardStep: 0, wizardAnswers: {}, view: 'ANALYZE', loading: false });
+      update({
+        prompt, scores, issues, recs: [],
+        wizardStep: 0, wizardAnswers: {},
+        view: 'ANALYZE', loading: false,
+        modal: { title: 'Generated Prompt', prompt },
+      });
       toast('Prompt generated successfully', 'ok');
     } catch (e: unknown) {
       toast('Wizard error: ' + (e as Error).message, 'err');

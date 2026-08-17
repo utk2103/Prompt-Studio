@@ -55,11 +55,41 @@ def is_caveman_active() -> bool:
     return (_state_dir() / ".caveman-active").exists()
 
 
+# Flag IO hardened symmetrically with caveman's safeWriteFlag/readFlag:
+# refuses symlinks (local attacker could plant one at the predictable flag
+# path pointing at ~/.ssh/id_rsa; readers would leak it), caps read size,
+# writes atomically via temp+rename with 0600. All failures silent — flag
+# is best-effort.
+_MAX_FLAG_BYTES = 64
+_VALID_FLAG_VALUES = frozenset({OFF_MODE, *MODES})
+
+
+def _default_mode() -> str:
+    env = os.environ.get("LEAN_DEFAULT_MODE", "").strip().lower()
+    if env in _VALID_FLAG_VALUES:
+        return env
+    return "full"
+
+
 def read_mode() -> str:
     try:
-        raw = _STATE_FILE.read_text(encoding="utf-8").strip().lower()
+        st = _STATE_FILE.lstat()
     except OSError:
-        return "full"
+        return _default_mode()
+    from stat import S_ISLNK, S_ISREG
+    if S_ISLNK(st.st_mode) or not S_ISREG(st.st_mode) or st.st_size > _MAX_FLAG_BYTES:
+        return _default_mode()
+    try:
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(str(_STATE_FILE), flags)
+        try:
+            raw = os.read(fd, _MAX_FLAG_BYTES).decode("utf-8", "replace").strip().lower()
+        finally:
+            os.close(fd)
+    except OSError:
+        return _default_mode()
+    if raw not in _VALID_FLAG_VALUES:
+        return _default_mode()
     if raw == OFF_MODE:
         return OFF_MODE
     return normalize_mode(raw)
@@ -69,7 +99,27 @@ def write_mode(mode: str) -> None:
     m = OFF_MODE if mode == OFF_MODE else normalize_mode(mode)
     try:
         _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        _STATE_FILE.write_text(m, encoding="utf-8")
+        # Refuse if the target already exists as a symlink — clobber vector.
+        try:
+            from stat import S_ISLNK
+            if S_ISLNK(_STATE_FILE.lstat().st_mode):
+                return
+        except FileNotFoundError:
+            pass
+        tmp = _STATE_FILE.with_name(f".lean-active.{os.getpid()}.tmp")
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            fd = os.open(str(tmp), flags, 0o600)
+            try:
+                os.write(fd, m.encode("utf-8"))
+            finally:
+                os.close(fd)
+            os.replace(str(tmp), str(_STATE_FILE))
+        finally:
+            try:
+                tmp.unlink()
+            except FileNotFoundError:
+                pass
     except OSError:
         # ponytail #386: disk full / perm error must not crash the hook.
         pass

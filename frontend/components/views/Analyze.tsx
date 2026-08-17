@@ -49,7 +49,7 @@ export default function Analyze({ state, update, toast }: Props) {
 
   const handleAnalyze = async () => {
     if (!state.prompt.trim()) { toast('Enter a prompt first', 'warn'); return; }
-    update({ loading: true });
+    update({ loading: true, loadingLabel: 'Analyzing' });
     try {
       let scores = state.scores;
       let issues = state.issues;
@@ -82,7 +82,7 @@ export default function Analyze({ state, update, toast }: Props) {
 
   const handleOptimize = async () => {
     if (!state.prompt.trim()) { toast('Enter a prompt first', 'warn'); return; }
-    update({ loading: true });
+    update({ loading: true, loadingLabel: 'Optimizing' });
     try {
       let prompt = state.prompt;
       if (state.apiOnline) {
@@ -100,7 +100,13 @@ export default function Analyze({ state, update, toast }: Props) {
         prompt = out;
         toast('Applied: ' + (ch.join(', ') || 'prompt already well-formed'), 'ok');
       }
-      update({ prompt, scores: scoreLocal(prompt, state.mode), issues: issuesLocal(prompt, state.mode), loading: false });
+      update({
+        prompt,
+        scores: scoreLocal(prompt, state.mode),
+        issues: issuesLocal(prompt, state.mode),
+        loading: false,
+        modal: { title: 'Optimized Prompt', prompt },
+      });
     } catch (e: unknown) {
       toast('Optimize failed: ' + (e as Error).message, 'err');
       update({ loading: false });
@@ -109,20 +115,30 @@ export default function Analyze({ state, update, toast }: Props) {
 
   const handleCompress = async () => {
     if (!state.prompt.trim()) { toast('Enter a prompt first', 'warn'); return; }
-    if (state.apiOnline) {
-      try {
-        const r = await apiFetch<{ compressed: string; tokens_saved: number; savings_pct: number }>('/prompt/compress', 'POST', { prompt: state.prompt, mode: state.mode });
-        update({ prompt: r.compressed, scores: scoreLocal(r.compressed, state.mode), issues: issuesLocal(r.compressed, state.mode) });
-        toast('-' + r.tokens_saved + ' tokens (' + r.savings_pct + '% savings)', 'info');
-      } catch { toast('Compress failed', 'err'); }
-    } else {
-      const fillers = [/\bplease\b/gi, /\bkindly\b/gi, /\bcould you\b/gi, /\bcan you\b/gi, /\bjust\b/gi, /\bbasically\b/gi];
+    update({ loading: true, loadingLabel: 'Compressing' });
+    try {
       let out = state.prompt;
-      fillers.forEach(f => (out = out.replace(f, '')));
-      out = out.replace(/  +/g, ' ').trim();
-      const saved = tok(state.prompt) - tok(out);
-      update({ prompt: out, scores: scoreLocal(out, state.mode), issues: issuesLocal(out, state.mode) });
-      toast('Compressed: -' + saved + ' tokens', 'info');
+      if (state.apiOnline) {
+        const r = await apiFetch<{ compressed: string; tokens_saved: number; savings_pct: number }>('/prompt/compress', 'POST', { prompt: state.prompt, mode: state.mode });
+        out = r.compressed;
+        toast('-' + r.tokens_saved + ' tokens (' + r.savings_pct + '% savings)', 'info');
+      } else {
+        const fillers = [/\bplease\b/gi, /\bkindly\b/gi, /\bcould you\b/gi, /\bcan you\b/gi, /\bjust\b/gi, /\bbasically\b/gi];
+        fillers.forEach(f => (out = out.replace(f, '')));
+        out = out.replace(/  +/g, ' ').trim();
+        const saved = tok(state.prompt) - tok(out);
+        toast('Compressed: -' + saved + ' tokens', 'info');
+      }
+      update({
+        prompt: out,
+        scores: scoreLocal(out, state.mode),
+        issues: issuesLocal(out, state.mode),
+        loading: false,
+        modal: { title: 'Compressed Prompt', prompt: out },
+      });
+    } catch {
+      toast('Compress failed', 'err');
+      update({ loading: false });
     }
   };
 

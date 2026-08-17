@@ -8,6 +8,8 @@ const config: Config = {
         mono: ['"JetBrains Mono"', '"Courier New"', 'monospace'],
       },
       colors: {
+        ink: 'var(--ink)',
+        'ink-3': 'var(--ink-3)',
         g1: '#33ff66',
         g2: '#00cc44',
         g3: '#007722',
