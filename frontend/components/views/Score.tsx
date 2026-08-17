@@ -3,81 +3,98 @@
 import type { AppState } from '@/lib/types';
 import { localRecs, modeAdvice } from '@/lib/scoring';
 import BarViz from '@/components/BarViz';
+import ViewHeader from './ViewHeader';
 
 interface Props {
   state: AppState;
   update: (p: Partial<AppState>) => void;
 }
 
+const DIM_TINT = (v: number) => v >= 75 ? '#5b8f3d' : v >= 50 ? '#c9a227' : '#c8342a';
+
 export default function Score({ state, update }: Props) {
   if (!state.scores || !state.prompt.trim()) {
     return (
       <div>
-        <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #004411' }}>
-          <div className="glow" style={{ color: '#33ff66', fontSize: 14, fontWeight: 700, marginBottom: 3, letterSpacing: '.5px' }}>► PROMPT SCORER</div>
-          <span style={{ color: '#007722', fontSize: 9 }}>Multi-dimensional quality analysis · 7 dimensions · letter grade</span>
+        <ViewHeader
+          marker="/V.02 [X 22.1, Y 14.6]"
+          title="Prompt Scorer"
+          subtitle="Multi-dimensional quality analysis across seven dimensions with a letter grade."
+        />
+        <div style={{ fontSize: 14, color: 'var(--d-ink-mute)', padding: '40px 0', textAlign: 'center' }}>
+          No prompt analyzed. Enter a prompt in Analyze first.
         </div>
-        <div style={{ color: '#007722', fontSize: 11, padding: '20px 0', textAlign: 'center' }}>── No prompt analyzed. Enter a prompt in [ANALYZE] first ──</div>
-        <button onClick={() => update({ view: 'ANALYZE' })} style={{ marginTop: 8, background: 'transparent', color: '#00cc44', border: '1px solid #00cc44', padding: '3px 10px', fontSize: 11, letterSpacing: '.3px' }}>[→ ANALYZE]</button>
+        <button
+          onClick={() => update({ view: 'ANALYZE' })}
+          className="d-cta-ghost"
+        >
+          → Analyze
+        </button>
       </div>
     );
   }
 
   const s = state.scores;
-  const oc = s.overall >= 75 ? '#33ff66' : s.overall >= 50 ? '#ffcc00' : '#ff4444';
+  const oc = DIM_TINT(s.overall);
   const recs = state.recs.length ? state.recs : localRecs(s);
 
   const dims = [
-    { k: 'clarity' as const, label: 'CLARITY          ', desc: 'Sentence structure & readability' },
-    { k: 'specificity' as const, label: 'SPECIFICITY      ', desc: 'Action verbs & task precision' },
-    { k: 'context' as const, label: 'CONTEXT RICHNESS ', desc: 'Background, role & examples' },
-    { k: 'format' as const, label: 'FORMAT SPEC      ', desc: 'Output structure definition' },
-    { k: 'mode_alignment' as const, label: 'MODE ALIGNMENT   ', desc: 'Matches mode: ' + state.mode },
-    { k: 'token_efficiency' as const, label: 'TOKEN EFFICIENCY ', desc: 'Optimal length vs. complexity' },
-    { k: 'constraints' as const, label: 'CONSTRAINTS      ', desc: 'Boundaries & guardrails' },
+    { k: 'clarity' as const,          label: 'Clarity',          desc: 'Sentence structure and readability' },
+    { k: 'specificity' as const,      label: 'Specificity',      desc: 'Action verbs and task precision' },
+    { k: 'context' as const,          label: 'Context Richness', desc: 'Background, role and examples' },
+    { k: 'format' as const,           label: 'Format Spec',      desc: 'Output structure definition' },
+    { k: 'mode_alignment' as const,   label: 'Mode Alignment',   desc: 'Matches mode: ' + state.mode },
+    { k: 'token_efficiency' as const, label: 'Token Efficiency', desc: 'Optimal length vs. complexity' },
+    { k: 'constraints' as const,      label: 'Constraints',      desc: 'Boundaries and guardrails' },
   ];
 
   return (
     <div>
-      <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #004411' }}>
-        <div className="glow" style={{ color: '#33ff66', fontSize: 14, fontWeight: 700, marginBottom: 3, letterSpacing: '.5px' }}>► PROMPT SCORER</div>
-        <span style={{ color: '#007722', fontSize: 9 }}>Multi-dimensional quality analysis · 7 dimensions · letter grade</span>
-      </div>
+      <ViewHeader
+        marker="/V.02 [X 22.1, Y 14.6]"
+        title="Prompt Scorer"
+        subtitle="Seven dimensions, rolled into an overall letter grade."
+      />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14, padding: '10px 12px', background: '#010f01', border: '1px solid #003311' }}>
-        <div style={{ textAlign: 'center', minWidth: 80 }}>
-          <span style={{ color: '#004411', fontSize: 9, display: 'block', marginBottom: 2, letterSpacing: '.5px' }}>OVERALL SCORE</span>
-          <div className="glow" style={{ color: oc, fontSize: 30, fontWeight: 700, lineHeight: '1.1', letterSpacing: '-1px' }}>{s.overall}/100</div>
-          <span style={{ color: oc, fontSize: 9, display: 'block', marginTop: 2 }}>GRADE {s.grade} · {s.label}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 32, padding: 28, background: 'var(--d-bg-alt)', border: '1px solid var(--d-line)', marginBottom: 32 }}>
+        <div>
+          <div className="d-coord" style={{ marginBottom: 8 }}>OVERALL SCORE</div>
+          <div className="font-display" style={{ fontSize: 72, letterSpacing: '-0.035em', lineHeight: 1, color: oc }}>{s.overall}<span style={{ fontSize: 24, color: 'var(--d-ink-mute)' }}>/100</span></div>
+          <div style={{ fontFamily: 'var(--font-jetbrains), monospace', fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', color: oc, marginTop: 8 }}>
+            Grade {s.grade} · {s.label}
+          </div>
         </div>
-        <div style={{ width: 1, background: '#003311', alignSelf: 'stretch', margin: '0 4px' }} />
-        <div style={{ flex: 1 }}>
-          <span style={{ color: '#007722', fontSize: 9, display: 'block', marginBottom: 6, letterSpacing: '.3px' }}>TOP RECOMMENDATIONS:</span>
+        <div>
+          <div className="d-coord" style={{ marginBottom: 12 }}>TOP RECOMMENDATIONS</div>
           {recs.slice(0, 3).map((r, i) => (
-            <div key={i} style={{ fontSize: 10, color: '#e8ffe8', marginBottom: 4, paddingLeft: 6, borderLeft: '2px solid #004411', lineHeight: '1.4' }}>→ {r}</div>
+            <div key={i} style={{ fontSize: 14, color: 'var(--d-ink)', marginBottom: 10, paddingLeft: 12, borderLeft: '2px solid var(--d-accent)', lineHeight: 1.5 }}>
+              {r}
+            </div>
           ))}
         </div>
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <span style={{ color: '#007722', fontSize: 9, display: 'block', marginBottom: 7, letterSpacing: '.5px', borderBottom: '1px solid #004411', paddingBottom: 5 }}>DIMENSION ANALYSIS:</span>
-        {dims.map(d => {
+      <div className="d-coord" style={{ marginBottom: 14 }}>/DIMENSION ANALYSIS</div>
+      <div style={{ border: '1px solid var(--d-line)', marginBottom: 32 }}>
+        {dims.map((d, i) => {
           const val = s[d.k] || 0;
-          const fc = val >= 75 ? '#33ff66' : val >= 50 ? '#ffcc00' : '#ff4444';
+          const fc = DIM_TINT(val);
           return (
-            <div key={d.k} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-              <span style={{ color: '#007722', fontSize: 10, width: 162, flexShrink: 0, letterSpacing: '.15px' }}>{d.label}</span>
-              <BarViz val={val} maxW={158} fillColor={fc} />
-              <span style={{ color: '#004411', fontSize: 9, marginLeft: 2 }}>{d.desc}</span>
+            <div key={d.k} style={{ display: 'grid', gridTemplateColumns: '180px 260px 1fr', padding: '14px 20px', borderTop: i === 0 ? 0 : '1px solid var(--d-line)', alignItems: 'center', gap: 16 }}>
+              <span style={{ fontSize: 14, fontWeight: 500 }}>{d.label}</span>
+              <BarViz val={val} maxW={200} fillColor={fc} />
+              <span style={{ fontSize: 12, color: 'var(--d-ink-mute)' }}>{d.desc}</span>
             </div>
           );
         })}
       </div>
 
-      <div style={{ padding: '8px 10px', border: '1px solid #004411', background: '#010f01' }}>
-        <span style={{ color: '#007722', fontSize: 9, display: 'block', marginBottom: 5, letterSpacing: '.3px' }}>MODE-SPECIFIC ADVICE ({state.mode}):</span>
+      <div style={{ padding: 20, border: '1px solid var(--d-line)', background: 'var(--d-bg-alt)' }}>
+        <div className="d-coord" style={{ marginBottom: 10 }}>MODE-SPECIFIC ADVICE ({state.mode})</div>
         {modeAdvice(state.mode).map((a, i) => (
-          <div key={i} style={{ color: '#00ccff', fontSize: 10, marginBottom: 3, paddingLeft: 2 }}>  ✦  {a}</div>
+          <div key={i} style={{ fontSize: 14, color: 'var(--d-ink)', marginBottom: 6 }}>
+            <span style={{ color: 'var(--d-accent)', marginRight: 8 }}>◆</span>{a}
+          </div>
         ))}
       </div>
     </div>

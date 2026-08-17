@@ -2,7 +2,16 @@
 
 import type { AppState, ModeType, ViewType } from '@/lib/types';
 
-const VIEWS: ViewType[] = ['ANALYZE', 'SCORE', 'TOKENS', 'CONTEXT', 'MODELS', 'WIZARD', 'HISTORY'];
+const VIEWS: { id: ViewType; label: string; marker: string }[] = [
+  { id: 'ANALYZE',  label: 'Analyze',  marker: '/N.01' },
+  { id: 'SCORE',    label: 'Score',    marker: '/N.02' },
+  { id: 'TOKENS',   label: 'Tokens',   marker: '/N.03' },
+  { id: 'CONTEXT',  label: 'Context',  marker: '/N.04' },
+  { id: 'MODELS',   label: 'Models',   marker: '/N.05' },
+  { id: 'WIZARD',   label: 'Wizard',   marker: '/N.06' },
+  { id: 'HISTORY',  label: 'History',  marker: '/N.07' },
+];
+
 const MODES: ModeType[] = ['CREATIVE', 'TECHNICAL', 'SYSTEM'];
 
 interface Props {
@@ -12,51 +21,75 @@ interface Props {
 
 export default function SideNav({ state, update }: Props) {
   return (
-    <div style={{ width: 134, borderRight: '1px solid #003311', padding: '10px 0', flexShrink: 0, background: '#0b100b' }}>
-      <div style={{ color: '#004411', fontSize: 9, padding: '0 10px 6px', borderBottom: '1px solid #004411', marginBottom: 8, letterSpacing: '.5px' }}>── NAVIGATION ──</div>
-      {VIEWS.map(v => {
-        const active = state.view === v;
-        return (
-          <div
-            key={v}
-            onClick={() => update({ view: v })}
-            style={{
-              padding: '5px 10px', cursor: 'pointer',
-              color: active ? '#33ff66' : '#007722',
-              background: active ? '#011a01' : 'transparent',
-              borderLeft: active ? '2px solid #33ff66' : '2px solid transparent',
-              fontSize: 11, letterSpacing: '.3px', transition: 'all .1s',
-            }}
-            onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLDivElement).style.color = '#00cc44'; (e.currentTarget as HTMLDivElement).style.background = '#010f01'; } }}
-            onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLDivElement).style.color = '#007722'; (e.currentTarget as HTMLDivElement).style.background = 'transparent'; } }}
-          >
-            {(active ? '▶ ' : '  ')}[{v}]
-          </div>
-        );
-      })}
-      <div style={{ borderTop: '1px solid #004411', margin: '10px 0 6px' }} />
-      <div style={{ padding: '0 10px' }}>
-        <div style={{ color: '#004411', fontSize: 9, marginBottom: 5, letterSpacing: '.5px' }}>── MODES ──</div>
+    <aside style={{ width: 240, borderRight: '1px solid var(--d-line)', padding: '28px 0', flexShrink: 0, background: 'var(--d-bg)' }}>
+      <div style={{ padding: '0 24px 12px' }}>
+        <span className="d-coord">/NAVIGATION</span>
+      </div>
+      <nav>
+        {VIEWS.map(v => {
+          const active = state.view === v.id;
+          return (
+            <button
+              key={v.id}
+              onClick={() => update({ view: v.id })}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                padding: '10px 24px',
+                background: active ? 'var(--d-bg-alt)' : 'transparent',
+                border: 0,
+                borderLeft: active ? '2px solid var(--d-accent)' : '2px solid transparent',
+                color: active ? 'var(--d-ink)' : 'var(--d-ink-soft)',
+                textAlign: 'left',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-manrope), sans-serif',
+                fontSize: 15,
+                fontWeight: active ? 600 : 400,
+                letterSpacing: '-0.01em',
+                transition: 'background 0.12s',
+              }}
+            >
+              <span>{v.label}</span>
+              <span className="d-coord" style={{ fontSize: 9, opacity: active ? 1 : 0.5 }}>{v.marker}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      <div style={{ padding: '32px 24px 12px' }}>
+        <span className="d-coord">/MODE</span>
+      </div>
+      <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 6 }}>
         {MODES.map(m => {
           const active = state.mode === m;
           return (
-            <div
+            <button
               key={m}
               onClick={() => update({ mode: m })}
               style={{
-                padding: '3px 4px', cursor: 'pointer',
-                color: active ? '#ffcc00' : '#007722',
-                background: active ? '#1a1100' : 'transparent',
-                fontSize: 10, marginBottom: 2, letterSpacing: '.2px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '6px 0',
+                background: 'transparent',
+                border: 0,
+                color: active ? 'var(--d-accent)' : 'var(--d-ink-soft)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-jetbrains), monospace',
+                fontSize: 11,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                textAlign: 'left',
               }}
-              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLDivElement).style.color = '#00cc44'; }}
-              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLDivElement).style.color = '#007722'; }}
             >
-              {active ? '● ' : '○ '}{m}
-            </div>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: active ? 'var(--d-accent)' : 'transparent', border: '1px solid ' + (active ? 'var(--d-accent)' : 'var(--d-line)') }} />
+              {m}
+            </button>
           );
         })}
       </div>
-    </div>
+    </aside>
   );
 }

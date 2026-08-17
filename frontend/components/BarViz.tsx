@@ -8,7 +8,7 @@ interface BarVizProps {
   fillColor?: string;
 }
 
-export default function BarViz({ val, maxW = 158, fillColor = '#00cc44' }: BarVizProps) {
+export default function BarViz({ val, maxW = 180, fillColor = 'var(--d-accent)' }: BarVizProps) {
   const fillRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -18,13 +18,12 @@ export default function BarViz({ val, maxW = 158, fillColor = '#00cc44' }: BarVi
   }, [val, maxW]);
 
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
       <span
         style={{
           width: maxW,
-          height: 7,
-          background: '#004411',
-          border: '1px solid #003311',
+          height: 6,
+          background: 'var(--d-line)',
           position: 'relative',
           overflow: 'hidden',
           display: 'inline-block',
@@ -36,7 +35,7 @@ export default function BarViz({ val, maxW = 158, fillColor = '#00cc44' }: BarVi
           style={{ position: 'absolute', left: 0, top: 0, width: 0, height: '100%', background: fillColor }}
         />
       </span>
-      <span style={{ color: fillColor, fontSize: 11, width: 34 }}>{val}%</span>
+      <span style={{ fontFamily: 'var(--font-jetbrains), monospace', fontSize: 11, color: 'var(--d-ink)', minWidth: 34 }}>{val}%</span>
     </span>
   );
 }
