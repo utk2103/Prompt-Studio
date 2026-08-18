@@ -25,26 +25,41 @@ _CMD = re.compile(r"^\s*/(?:prompt-studio:)?lean\s+(\S+)\s*$", re.IGNORECASE)
 _BARE = re.compile(r"^\s*/(?:prompt-studio:)?lean\s*$", re.IGNORECASE)
 _OFF = re.compile(r"^\s*(stop\s+lean|normal\s+mode|/(?:prompt-studio:)?lean\s+off)\s*$", re.IGNORECASE)
 
+# Claude Code delivers slash commands to hooks as an envelope, not the literal
+# command (caveman #537). Rebuild "<name> <args>" so downstream regexes match.
+_ENVELOPE_NAME = re.compile(r"<command-name>\s*([^<\s]+)\s*</command-name>", re.IGNORECASE)
+_ENVELOPE_ARGS = re.compile(r"<command-args>\s*([^<]*?)\s*</command-args>", re.IGNORECASE)
+_LEAN_SLASH = re.compile(r"^/(?:prompt-studio:)?lean$", re.IGNORECASE)
 
-def _probe_log(payload: dict) -> None:
-    """TEMP: log every hook invocation to verify which prompts trigger UserPromptSubmit."""
-    import json as _j
-    import time as _t
-    try:
-        with open("/tmp/lean-usage-probe.log", "a", encoding="utf-8") as _f:
-            _f.write(_j.dumps({
-                "ts": _t.time(),
-                "prompt": (payload.get("prompt") or "")[:200],
-                "keys": sorted(payload.keys()),
-            }) + "\n")
-    except OSError:
-        pass
+
+def _unwrap(prompt: str) -> str | None:
+    """Return lean slash command reconstructed from envelope, prompt unchanged
+    if no envelope, or None if envelope belongs to a foreign command (so
+    natural-language matchers don't misfire on another command's args)."""
+    name = _ENVELOPE_NAME.search(prompt)
+    if not name:
+        return prompt
+    cmd = name.group(1)
+    if not _LEAN_SLASH.match(cmd):
+        return None
+    args_m = _ENVELOPE_ARGS.search(prompt)
+    args = args_m.group(1).strip() if args_m else ""
+    return f"{cmd} {args}".strip()
 
 
 def main() -> None:
     payload = read_stdin_json()
-    _probe_log(payload)
     prompt = str(payload.get("prompt", ""))
+
+    # Scheduled/background runs must not receive Lean reinforcement — the
+    # injected ruleset would hijack the task prompt (caveman parity).
+    if "<scheduled-task" in prompt:
+        return
+
+    unwrapped = _unwrap(prompt)
+    if unwrapped is None:
+        return
+    prompt = unwrapped
 
     if _OFF.match(prompt):
         clear_mode()  # writes "off"; persists across sessions (#488)

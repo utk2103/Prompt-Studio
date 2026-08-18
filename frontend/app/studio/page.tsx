@@ -17,6 +17,8 @@ import Context from '@/components/views/Context';
 import Models from '@/components/views/Models';
 import Wizard from '@/components/views/Wizard';
 import History from '@/components/views/History';
+import LoadingState from '@/components/LoadingState';
+import PromptModal from '@/components/PromptModal';
 
 const INITIAL: AppState = {
   view: 'ANALYZE',
@@ -33,6 +35,7 @@ const INITIAL: AppState = {
   models: FB_MODELS,
   apiOnline: false,
   loading: false,
+  modal: null,
 };
 
 export default function StudioPage() {
@@ -60,11 +63,8 @@ export default function StudioPage() {
   const renderView = () => {
     if (state.loading) {
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 320, gap: 14 }}>
-          <div style={{ color: 'var(--d-accent)', fontSize: 20, letterSpacing: 6 }}>
-            <span className="ldot">▪</span><span className="ldot">▪</span><span className="ldot">▪</span>
-          </div>
-          <span className="d-coord">PROCESSING REQUEST</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 320 }}>
+          <LoadingState label={state.loadingLabel || 'Working'} variant="Drive" />
         </div>
       );
     }
@@ -93,6 +93,15 @@ export default function StudioPage() {
       </div>
       <StatusBar state={state} />
       <ToastContainer toasts={toasts} />
+      {state.modal && (
+        <PromptModal
+          title={state.modal.title}
+          prompt={state.modal.prompt}
+          original={state.modal.original}
+          onClose={() => update({ modal: null })}
+          onCopy={() => toast('Copied to clipboard', 'ok')}
+        />
+      )}
     </div>
   );
 }

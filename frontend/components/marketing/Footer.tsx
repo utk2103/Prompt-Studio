@@ -59,7 +59,7 @@ export default function Footer() {
         <div className="d-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 32px', fontFamily: 'var(--font-jetbrains), monospace', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#8a857c' }}>
           <span>PROMPT-STUDIO · 2026</span>
           <Coord x="02.3" y="80.4" />
-          <span>Apache 2.0 · Built with ponytail energy</span>
+          <span>Apache 2.0 · Built with love</span>
         </div>
       </div>
     </footer>

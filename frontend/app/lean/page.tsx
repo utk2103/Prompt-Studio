@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Shell from '@/components/marketing/Shell';
 import PageHero from '@/components/marketing/PageHero';
+import CodeBlock from '@/components/CodeBlock';
 
 const INTENSITIES = [
   { level: 'lite', when: 'Minimum payload · small models, tight context, cost-sensitive calls.' },
@@ -9,14 +10,22 @@ const INTENSITIES = [
 ];
 
 const HOSTS = [
-  ['Claude Code', 'Plugin · /plugin install prompt-studio@prompt-studio'],
-  ['Codex', 'Plugin · codex plugin add prompt-studio@prompt-studio'],
   ['GitHub Copilot CLI', 'Plugin · copilot plugin install prompt-studio@prompt-studio'],
   ['Devin CLI', 'Plugin · devin plugins install utk2103/Prompt-Studio'],
   ['Qoder', 'Rules · .qoder/rules + hooks/qoder-hooks.json'],
   ['Cursor / Windsurf / Cline / Kiro / Zed', 'Rules file drop into host rules directory'],
   ['JetBrains / VS Code Copilot Chat / Amp / Jules / CodeWhale / Antigravity', 'AGENTS.md at repo root'],
 ];
+
+const LEAN_EXAMPLE = `from app.services.formats import build_messages
+
+msgs = build_messages(
+  text="Write a Python function that validates emails.",
+  model_id="claude-3-5",
+  intensity="full",   # "lite" | "full" | "ultra"
+)
+# msgs[0] → system slot with LEAN + cache_control: ephemeral
+# msgs[1] → user turn`;
 
 export default function LeanPage() {
   return (
@@ -40,17 +49,7 @@ export default function LeanPage() {
               The plugin, MCP server, benchmark arms, and FastAPI adapters all read the same file. Bump it once · everything downstream picks it up. The system slot is marked <code style={{ background: 'var(--d-bg-alt)', padding: '2px 6px' }}>cache_control: ephemeral</code>, so the persona charges once per Anthropic prompt-cache TTL, not per turn.
             </p>
           </div>
-          <pre style={{ background: 'var(--d-dark)', color: 'var(--d-dark-ink)', padding: 24, fontSize: 12, lineHeight: 1.6, overflow: 'auto', fontFamily: 'var(--font-jetbrains), monospace' }}>
-{`from app.services.formats import build_messages
-
-msgs = build_messages(
-  text="Write a Python function that validates emails.",
-  model_id="claude-3-5",
-  intensity="full",   # "lite" | "full" | "ultra"
-)
-# msgs[0] → system slot with LEAN + cache_control: ephemeral
-# msgs[1] → user turn`}
-          </pre>
+          <CodeBlock code={LEAN_EXAMPLE} filename="build_messages.py" language="Python" />
         </div>
       </section>
 
@@ -77,6 +76,26 @@ msgs = build_messages(
           <h2 className="font-display" style={{ fontSize: 'clamp(32px, 4vw, 52px)', letterSpacing: '-0.025em', marginBottom: 32 }}>
             Ships across every major agent host.
           </h2>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 20, marginBottom: 32 }}>
+            <div>
+              <div className="d-coord" style={{ marginBottom: 10 }}>CLAUDE CODE</div>
+              <CodeBlock
+                filename="install"
+                language="shell"
+                code="/plugin install prompt-studio@prompt-studio"
+              />
+            </div>
+            <div>
+              <div className="d-coord" style={{ marginBottom: 10 }}>CODEX</div>
+              <CodeBlock
+                filename="install"
+                language="shell"
+                code="codex plugin add prompt-studio@prompt-studio"
+              />
+            </div>
+          </div>
+
           <div style={{ border: '1px solid var(--d-line)' }}>
             {HOSTS.map(([host, how], i) => (
               <div key={host} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', padding: '18px 24px', borderTop: i === 0 ? 0 : '1px solid var(--d-line)', alignItems: 'baseline' }}>
