@@ -20,14 +20,22 @@ from __future__ import annotations
 import time
 import uuid
 from collections import deque
+from functools import lru_cache
 from typing import Any
 
-import httpx
+from supermemory import Supermemory, SupermemoryError
 
 from app.config import get_config
 
 _LOCAL: deque = deque(maxlen=get_config().history_max)
-_TIMEOUT = httpx.Timeout(10.0)
+
+
+@lru_cache(maxsize=1)
+def _sm_client() -> Supermemory | None:
+    key = get_config().supermemory_api_key
+    if not key:
+        return None
+    return Supermemory(api_key=key)
 
 
 # ────────────────────────── selection ──────────────────────────
@@ -75,18 +83,6 @@ def _local_clear() -> int:
 # ────────────────────────── supermemory backend ──────────────────────────
 
 
-def _sm_headers() -> dict[str, str]:
-    return {
-        "authorization": f"Bearer {get_config().supermemory_api_key}",
-        "content-type": "application/json",
-    }
-
-
-def _sm_url(path: str) -> str:
-    base = get_config().supermemory_base_url.rstrip("/")
-    return f"{base}{path}"
-
-
 def _entry_to_content(item: dict) -> str:
     """Flatten a history entry into a single string Supermemory can index."""
     parts = [
@@ -111,21 +107,21 @@ def _sm_add(item: dict) -> dict:
     }
     if item.get("score") is not None:
         metadata["score"] = item["score"]
-    body: dict[str, Any] = {
-        "content": _entry_to_content(item),
-        "containerTag": cfg.supermemory_container_tag,
-        "customId": f"prompt:{item['id']}",
-        "metadata": metadata,
-    }
-    try:
-        r = httpx.post(_sm_url("/documents"), json=body, headers=_sm_headers(), timeout=_TIMEOUT)
-        r.raise_for_status()
-        data = r.json()
-        if isinstance(data, dict) and data.get("id"):
-            item["remote_id"] = data["id"]
-    except (httpx.HTTPError, ValueError):
-        # Best-effort — never surface memory errors to callers.
-        pass
+    client = _sm_client()
+    if client is not None:
+        try:
+            r = client.documents.add(
+                content=_entry_to_content(item),
+                container_tags=[cfg.supermemory_container_tag],
+                custom_id=f"prompt:{item['id']}",
+                metadata=metadata,
+            )
+            remote_id = getattr(r, "id", None) or getattr(r, "document_id", None)
+            if remote_id:
+                item["remote_id"] = remote_id
+        except SupermemoryError:
+            # Best-effort — never surface memory errors to callers.
+            pass
     # Also mirror to local so /history GET stays fast without a fetch.
     _LOCAL.appendleft(item)
     return item
@@ -139,33 +135,36 @@ def _sm_list() -> list[dict]:
 
 def _sm_search(query: str, limit: int = 6) -> list[dict]:
     cfg = get_config()
-    if not query.strip() or not cfg.supermemory_api_key:
+    client = _sm_client()
+    if not query.strip() or client is None:
         return []
-    body: dict[str, Any] = {
-        "q": query,
-        "containerTag": cfg.supermemory_container_tag,
-        "limit": limit,
-        "filters": {"AND": [{"key": "userId", "value": cfg.supermemory_user_id, "negate": False}]},
-    }
     try:
-        r = httpx.post(_sm_url("/search"), json=body, headers=_sm_headers(), timeout=_TIMEOUT)
-        r.raise_for_status()
-        raw = r.json().get("results", [])
-    except (httpx.HTTPError, ValueError):
+        # lean: single-tenant, container_tag scopes fine.
+        # Multi-tenant → add `filters={"AND":[{"key":"userId","value":cfg.supermemory_user_id,"filterType":"metadata"}]}`.
+        resp = client.search.documents(
+            q=query,
+            container_tags=[cfg.supermemory_container_tag],
+            limit=limit,
+        )
+    except SupermemoryError:
         return []
     out: list[dict] = []
-    for row in raw:
-        chunks = row.get("chunks") or []
-        content = "\n".join(c.get("content", "") for c in chunks if c.get("content")).strip()
+    for row in getattr(resp, "results", []) or []:
+        chunks = getattr(row, "chunks", None) or []
+        content = "\n".join(
+            (getattr(c, "content", "") or "") for c in chunks
+        ).strip()
         if not content:
-            content = row.get("title", "") or ""
-        out.append({
-            "id": row.get("documentId") or row.get("id"),
-            "content": content.strip(),
-            "score": row.get("score"),
-            "metadata": row.get("metadata") or {},
-        })
-    return [r for r in out if r["content"]]
+            content = getattr(row, "title", "") or ""
+        rid = getattr(row, "document_id", None) or getattr(row, "id", None)
+        if content:
+            out.append({
+                "id": rid,
+                "content": content,
+                "score": getattr(row, "score", None),
+                "metadata": getattr(row, "metadata", None) or {},
+            })
+    return out
 
 
 def _sm_clear() -> int:
