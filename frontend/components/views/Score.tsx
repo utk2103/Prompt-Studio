@@ -7,12 +7,11 @@ import ViewHeader from './ViewHeader';
 
 interface Props {
   state: AppState;
-  update: (p: Partial<AppState>) => void;
 }
 
 const DIM_TINT = (v: number) => v >= 75 ? '#5b8f3d' : v >= 50 ? '#c9a227' : '#c8342a';
 
-export default function Score({ state, update }: Props) {
+export default function Score({ state }: Props) {
   if (!state.scores || !state.prompt.trim()) {
     return (
       <div>
@@ -22,14 +21,8 @@ export default function Score({ state, update }: Props) {
           subtitle="Multi-dimensional quality analysis across seven dimensions with a letter grade."
         />
         <div style={{ fontSize: 14, color: 'var(--d-ink-mute)', padding: '40px 0', textAlign: 'center' }}>
-          No prompt analyzed. Enter a prompt in Analyze first.
+          Send a prompt from the chat to see its score.
         </div>
-        <button
-          onClick={() => update({ view: 'ANALYZE' })}
-          className="d-cta-ghost"
-        >
-          → Analyze
-        </button>
       </div>
     );
   }
