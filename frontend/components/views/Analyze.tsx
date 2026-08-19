@@ -1,7 +1,7 @@
 'use client';
 
 import type { AppState, ToastType } from '@/lib/types';
-import { apiFetch, minDelay } from '@/lib/api';
+import { apiFetch, memoryHeader, minDelay } from '@/lib/api';
 import { scoreLocal, issuesLocal, normalizeIssues } from '@/lib/scoring';
 import { tok, wc } from '@/lib/utils';
 import ViewHeader from './ViewHeader';
@@ -72,7 +72,7 @@ export default function Analyze({ state, update, toast }: Props) {
       const entry = { prompt_preview: state.prompt.slice(0, 80) + (state.prompt.length > 80 ? '...' : ''), mode: state.mode, model_id: state.model, score: scores?.overall, ts: Date.now() };
       let history = state.history;
       if (state.apiOnline) {
-        try { const saved = await apiFetch<typeof entry>('/history', 'POST', entry); history = [saved, ...history.slice(0, 9)]; } catch { }
+        try { const saved = await apiFetch<typeof entry>('/history', 'POST', entry, memoryHeader(state.memoryBackend)); history = [saved, ...history.slice(0, 9)]; } catch { }
       } else {
         history = [{ ...entry, id: Math.random().toString(36).slice(2, 8) }, ...history.slice(0, 9)];
       }

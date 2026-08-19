@@ -5,8 +5,17 @@ import type { HistoryEntry, Model, WizardQuestion } from './types';
 // stay at root. Prefix here so every caller can keep using the bare path.
 const META_PREFIXES = ['/health', '/ui'];
 
-export async function apiFetch<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-  const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(8000) };
+export async function apiFetch<T>(
+  path: string,
+  method = 'GET',
+  body?: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
+  const opts: RequestInit = {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(headers || {}) },
+    signal: AbortSignal.timeout(8000),
+  };
   if (body) opts.body = JSON.stringify(body);
   const url = META_PREFIXES.some(p => path === p || path.startsWith(p + '/'))
     ? API + path
@@ -14,6 +23,10 @@ export async function apiFetch<T>(path: string, method = 'GET', body?: unknown):
   const r = await fetch(url, opts);
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json() as Promise<T>;
+}
+
+export function memoryHeader(backend: string | undefined): Record<string, string> {
+  return backend ? { 'X-Memory-Backend': backend } : {};
 }
 
 // Give LoadingState time to actually render. React 18 batches synchronous
@@ -25,16 +38,24 @@ export async function initAPI(): Promise<{
   models: Model[];
   wizardQ: WizardQuestion[];
   history: HistoryEntry[];
+  supermemoryAvailable: boolean;
 }> {
   try {
-    const [, models, wqData, history] = await Promise.all([
+    const [, models, wqData, history, backend] = await Promise.all([
       apiFetch('/health'),
       apiFetch<Model[]>('/models'),
       apiFetch<{ questions: WizardQuestion[] }>('/wizard/questions'),
       apiFetch<HistoryEntry[]>('/history'),
+      apiFetch<{ default: string; supermemory_available: boolean }>('/history/backend').catch(() => ({ default: 'local', supermemory_available: false })),
     ]);
-    return { apiOnline: true, models, wizardQ: wqData.questions || FB_WQ, history: history || [] };
+    return {
+      apiOnline: true,
+      models,
+      wizardQ: wqData.questions || FB_WQ,
+      history: history || [],
+      supermemoryAvailable: backend.supermemory_available,
+    };
   } catch {
-    return { apiOnline: false, models: FB_MODELS, wizardQ: FB_WQ, history: [] };
+    return { apiOnline: false, models: FB_MODELS, wizardQ: FB_WQ, history: [], supermemoryAvailable: false };
   }
 }
