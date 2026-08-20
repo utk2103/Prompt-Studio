@@ -1,6 +1,6 @@
 [project]
 name = "lean-mcp"
-version = "1.0.0"
+version = "1.1.0"
 description = "MCP server that serves Prompt-Studio's Lean lazy-senior-dev ruleset as a prompt and a tool."
 readme = "README.md"
 requires-python = ">=3.11"

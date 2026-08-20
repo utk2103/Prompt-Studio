@@ -1,6 +1,6 @@
 {
   "name": "prompt-studio",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Prompt engineering workbench with a Lean persona layer that cuts LLM output size, cost, and latency. Injects the Lean ruleset every session via SessionStart + SubagentStart hooks.",
   "author": {
     "name": "utk2103",

@@ -30,17 +30,28 @@ def _state_dir() -> Path:
     return Path.home() / ".claude"
 
 
+def _normalize_project(v: str) -> str:
+    # Symlink-resolve + strip trailing separator so /path, /path/, and
+    # /symlinked/path all hash to the same key. Prevents flag misses when
+    # the same repo is launched from different-looking cwds.
+    try:
+        return os.path.realpath(v).rstrip(os.sep)
+    except OSError:
+        return v.rstrip(os.sep)
+
+
 def _project_scope() -> str:
     # ponytail #662: per-repo flag file so concurrent sessions in different
     # projects don't overwrite each other. Falls back to "" (global flag).
     for var in ("CLAUDE_PROJECT_DIR", "PWD"):
         v = os.environ.get(var)
         if v:
-            return "-" + hashlib.sha1(v.encode("utf-8")).hexdigest()[:8]
+            return "-" + hashlib.sha1(_normalize_project(v).encode("utf-8")).hexdigest()[:8]
     return ""
 
 
 _STATE_FILE = _state_dir() / f".lean-active{_project_scope()}"
+_GLOBAL_STATE_FILE = _state_dir() / ".lean-active"
 
 
 def is_codex() -> bool:
@@ -71,28 +82,43 @@ def _default_mode() -> str:
     return "full"
 
 
-def read_mode() -> str:
+def _read_flag_file(path: Path) -> str | None:
+    """Return the mode literal from `path`, or None if absent/invalid."""
     try:
-        st = _STATE_FILE.lstat()
+        st = path.lstat()
     except OSError:
-        return _default_mode()
+        return None
     from stat import S_ISLNK, S_ISREG
     if S_ISLNK(st.st_mode) or not S_ISREG(st.st_mode) or st.st_size > _MAX_FLAG_BYTES:
-        return _default_mode()
+        return None
     try:
         flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-        fd = os.open(str(_STATE_FILE), flags)
+        fd = os.open(str(path), flags)
         try:
             raw = os.read(fd, _MAX_FLAG_BYTES).decode("utf-8", "replace").strip().lower()
         finally:
             os.close(fd)
     except OSError:
-        return _default_mode()
+        return None
     if raw not in _VALID_FLAG_VALUES:
-        return _default_mode()
-    if raw == OFF_MODE:
-        return OFF_MODE
-    return normalize_mode(raw)
+        return None
+    return OFF_MODE if raw == OFF_MODE else normalize_mode(raw)
+
+
+def read_mode() -> str:
+    # Project-scoped flag first; fall through to the un-scoped global flag so
+    # a preference set before the project-key normalization (or under an
+    # ambiguous PWD/CLAUDE_PROJECT_DIR) still applies.
+    for p in (_STATE_FILE, _GLOBAL_STATE_FILE):
+        v = _read_flag_file(p)
+        if v is not None:
+            return v
+    return _default_mode()
+
+
+def has_persisted_mode() -> bool:
+    """True if either flag file exists with a valid value on disk."""
+    return any(_read_flag_file(p) is not None for p in (_STATE_FILE, _GLOBAL_STATE_FILE))
 
 
 def write_mode(mode: str) -> None:
@@ -171,6 +197,7 @@ __all__ = [
     "get_lean_instructions",
     "normalize_mode",
     "read_mode",
+    "has_persisted_mode",
     "write_mode",
     "clear_mode",
     "read_stdin_json",
