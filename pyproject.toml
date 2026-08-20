@@ -1,6 +1,6 @@
 [project]
 name = "promptstudio-ai"
-version = "1.0.0"
+version = "1.1.0"
 readme = "README.md"
 description = "AI-powered prompt engineering assistant: scoring, validation, optimization, and semantic search."
 authors = [
