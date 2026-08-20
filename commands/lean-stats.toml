@@ -1,0 +1,2 @@
+description = "Show real token usage and estimated Lean savings for the current session"
+prompt = "Report Lean stats for the current Claude Code session. The UserPromptSubmit hook aggregates message.usage.* from the session transcript and emits a systemMessage — the model does not compute these numbers. Do not switch mode, do not write flag files. One-shot, no state change."

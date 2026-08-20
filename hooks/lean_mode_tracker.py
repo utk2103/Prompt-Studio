@@ -20,16 +20,18 @@ from _lean_common import (
     read_stdin_json,
     write_mode,
 )
+from lean_stats import format_stats
 
 _CMD = re.compile(r"^\s*/(?:prompt-studio:)?lean\s+(\S+)\s*$", re.IGNORECASE)
 _BARE = re.compile(r"^\s*/(?:prompt-studio:)?lean\s*$", re.IGNORECASE)
 _OFF = re.compile(r"^\s*(stop\s+lean|normal\s+mode|/(?:prompt-studio:)?lean\s+off)\s*$", re.IGNORECASE)
+_STATS = re.compile(r"^\s*/(?:prompt-studio:)?lean-stats\s*$", re.IGNORECASE)
 
 # Claude Code delivers slash commands to hooks as an envelope, not the literal
 # command (caveman #537). Rebuild "<name> <args>" so downstream regexes match.
 _ENVELOPE_NAME = re.compile(r"<command-name>\s*([^<\s]+)\s*</command-name>", re.IGNORECASE)
 _ENVELOPE_ARGS = re.compile(r"<command-args>\s*([^<]*?)\s*</command-args>", re.IGNORECASE)
-_LEAN_SLASH = re.compile(r"^/(?:prompt-studio:)?lean$", re.IGNORECASE)
+_LEAN_SLASH = re.compile(r"^/(?:prompt-studio:)?lean(?:-stats)?$", re.IGNORECASE)
 
 
 def _unwrap(prompt: str) -> str | None:
@@ -64,6 +66,14 @@ def main() -> None:
     if _OFF.match(prompt):
         clear_mode()  # writes "off"; persists across sessions (#488)
         emit_prompt_submit(system_message="LEAN MODE OFF")
+        return
+
+    if _STATS.match(prompt):
+        try:
+            msg = format_stats(payload, read_mode())
+        except Exception as e:
+            msg = f"LEAN STATS: unable to read session transcript ({e.__class__.__name__})"
+        emit_prompt_submit(system_message=msg)
         return
 
     if _BARE.match(prompt):
