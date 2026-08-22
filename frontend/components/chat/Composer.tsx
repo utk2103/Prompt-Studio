@@ -103,12 +103,14 @@ export default function Composer({ state, update, onSend, onOptimize, onCompress
 
   return (
     <div ref={wrapRef} style={{ position: 'relative', borderTop: '1px solid var(--d-line)', background: 'var(--d-bg-alt)', padding: '14px 20px' }}>
-      {/* chips row: live status */}
+      {/* inspector chips: all four render at rest; Score is disabled until there's a draft to score */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-        <Chip label="Tokens" value={String(t)} tint={ctxPct > 80 ? '#c8342a' : undefined} title="Click to inspect token usage" onClick={() => update({ view: 'TOKENS' })} />
-        <Chip label="Ctx" value={model ? `${ctxPct.toFixed(1)}%` : '—'} tint={ctxPct > 80 ? '#c8342a' : undefined} onClick={() => update({ view: 'CONTEXT' })} />
-        {live && <Chip label="Score" value={`${live.overall}`} tint={TINT(live.overall)} onClick={() => update({ view: 'SCORE' })} />}
-        <Chip label="Fit" value={model?.format || '—'} onClick={() => update({ view: 'MODELS' })} />
+        <Chip label="Tokens" value={String(t)} tint={ctxPct > 80 ? '#c8342a' : undefined} title="Inspect token usage" onClick={() => update({ view: 'TOKENS' })} />
+        <Chip label="Ctx" value={model ? `${ctxPct.toFixed(1)}%` : '—'} tint={ctxPct > 80 ? '#c8342a' : undefined} title="Inspect context fit" onClick={() => update({ view: 'CONTEXT' })} />
+        <Chip label="Score" value={live ? `${live.overall}` : '—'} tint={live ? TINT(live.overall) : undefined}
+          title={live ? 'Open score breakdown' : 'Type a prompt to score'}
+          onClick={live ? () => update({ view: 'SCORE' }) : undefined} />
+        <Chip label="Models" value={model?.format || '—'} title="Model compatibility" onClick={() => update({ view: 'MODELS' })} />
       </div>
 
       {/* composer box */}
@@ -166,24 +168,24 @@ export default function Composer({ state, update, onSend, onOptimize, onCompress
           }}
         />
 
-        {/* actions */}
+        {/* actions: draft tools are labeled, not bare glyphs */}
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <button type="button" onClick={onWizard} disabled={busy} style={iconBtn()} title="Guided wizard">
-            <span style={{ fontSize: 12 }}>✧</span>
+          <button type="button" onClick={onWizard} disabled={busy} style={actionBtn()} title="Build a prompt with the guided wizard">
+            ✧ Wizard
           </button>
-          <button type="button" onClick={onOptimize} disabled={busy || !draft.trim()} style={iconBtn()} title="Optimize">
-            <span style={{ fontSize: 12 }}>↑</span>
+          <button type="button" onClick={onOptimize} disabled={busy || !draft.trim()} style={actionBtn()} title="Optimize the current draft">
+            ↑ Optimize
           </button>
-          <button type="button" onClick={onCompress} disabled={busy || !draft.trim()} style={iconBtn()} title="Compress">
-            <span style={{ fontSize: 12 }}>≡</span>
+          <button type="button" onClick={onCompress} disabled={busy || !draft.trim()} style={actionBtn()} title="Compress the current draft">
+            ≡ Compress
           </button>
-          <button type="button" onClick={send} disabled={!canSend} style={{
+          <button type="button" onClick={send} disabled={!canSend} title="Analyze — send prompt (Enter)" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 32, height: 32, marginLeft: 4,
             background: canSend ? 'var(--d-accent)' : 'var(--d-line)',
             color: canSend ? '#fff' : 'var(--d-ink-mute)',
             border: 0, cursor: canSend ? 'pointer' : 'not-allowed',
-          }} title="Send (Enter)">
+          }}>
             <SendIcon />
           </button>
         </div>
@@ -221,11 +223,12 @@ function menuItem(active: boolean): React.CSSProperties {
     fontFamily: 'var(--font-manrope), sans-serif', fontSize: 13,
   };
 }
-function iconBtn(): React.CSSProperties {
+function actionBtn(): React.CSSProperties {
   return {
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    width: 28, height: 28, border: '1px solid var(--d-line)',
-    background: 'transparent', color: 'var(--d-ink-mute)',
-    cursor: 'pointer',
+    display: 'inline-flex', alignItems: 'center', gap: 5,
+    height: 28, padding: '0 10px', border: '1px solid var(--d-line)',
+    background: 'transparent', color: 'var(--d-ink-mute)', cursor: 'pointer',
+    fontFamily: 'var(--font-jetbrains), monospace', fontSize: 10.5,
+    letterSpacing: '0.12em', textTransform: 'uppercase', whiteSpace: 'nowrap',
   };
 }

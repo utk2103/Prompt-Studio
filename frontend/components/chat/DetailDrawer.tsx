@@ -35,7 +35,7 @@ export default function DetailDrawer({ state, update, onClose }: Props) {
 
   return (
     <aside style={{
-      width: 460, borderLeft: '1px solid var(--d-line)', background: 'var(--d-bg)',
+      width: 460, flexShrink: 0, borderLeft: '1px solid var(--d-line)', background: 'var(--d-bg)',
       display: 'flex', flexDirection: 'column', minHeight: 0,
     }}>
       <div style={{
