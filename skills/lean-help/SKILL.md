@@ -46,19 +46,13 @@ Task: *"Add a cache for these API responses."*
 |-------|---------|--------------|
 | **lean** | `/prompt-studio:lean [lite\|full\|ultra]` | Lazy mode itself. Shortest solution that actually works. |
 | **compress** | `/prompt-studio:compress FILE` | Compress a memory file (CLAUDE.md, todos, prefs) into Lean shorthand. Backup at `FILE.original.md`. |
+| **lean-audit** | `/prompt-studio:lean-audit` | Whole-repo over-engineering audit. Ranked list of what to delete/simplify across the codebase. |
+| **lean-debt** | `/prompt-studio:lean-debt` | Harvest `lean:` comments into a debt ledger so deferrals get tracked, not forgotten. |
 | **lean-gain** | `/prompt-studio:lean-gain` | Measured impact scoreboard — less code, more speed (no cost claim). |
+| **lean-review** | `/prompt-studio:lean-review` | Review a diff for over-engineering only. One line per finding: what to cut, what replaces it. |
 | **lean-help** | `/prompt-studio:lean-help` | This card. |
 
-Codex users: `@lean`, `@compress`, `@lean-gain`, `@lean-help`. OpenCode and Claude Code:
-| **lean-audit** | `/prompt-studio:lean-audit` | Whole-repo over-engineering audit. Ranked list of what to delete/simplify across the codebase. |
-
-Codex users: `@lean`, `@compress`, `@lean-audit`, `@lean-help`. OpenCode and Claude Code:
-| **lean-review** | `/prompt-studio:lean-review` | Review a diff for over-engineering only. One line per finding: what to cut, what replaces it. |
-
-Codex users: `@lean`, `@compress`, `@lean-review`, `@lean-help`. OpenCode and Claude Code:
-| **lean-debt** | `/prompt-studio:lean-debt` | Harvest `lean:` comments into a debt ledger so deferrals get tracked, not forgotten. |
-
-Codex users: `@lean`, `@compress`, `@lean-debt`, `@lean-help`. OpenCode and Claude Code:
+Codex users: `@lean`, `@compress`, `@lean-audit`, `@lean-debt`, `@lean-gain`, `@lean-review`, `@lean-help`. OpenCode and Claude Code:
 slash-command forms above.
 
 ---
