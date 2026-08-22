@@ -63,6 +63,8 @@ export interface AppState {
   loading: boolean;
   loadingLabel?: string;
   modal: { title: string; prompt: string; original?: string } | null;
+  memoryBackend: 'local' | 'supermemory';
+  supermemoryAvailable: boolean;
 }
 
 export type ToastType = 'ok' | 'err' | 'warn' | 'info';

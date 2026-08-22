@@ -268,6 +268,7 @@ All read `AGENTS.md` from the repo root. Running from a Prompt-Studio checkout w
 | `/prompt-studio:lean ultra`      | Maximum guidance |
 | `/prompt-studio:lean off` or `stop lean` | Deactivate for the session |
 | `/prompt-studio:lean-help`       | Quick reference, one-shot, no state change |
+| `/prompt-studio:lean-stats`      | Real token usage + estimated savings for the current session |
 | `/prompt-studio:compress <file>` | Compress a memory file (CLAUDE.md, todos, prefs) into lean format |
 
 Short form (`/lean lite`, `stop lean`) also works — the `UserPromptSubmit` hook parses the raw prompt even when the slash-command menu doesn't recognize the un-namespaced form.
@@ -341,6 +342,121 @@ Any host with `SessionStart` + `UserPromptSubmit` hook events: Claude Code, Code
 
 **How do I bump the version?**
 `pdm run check_versions` first to confirm alignment, edit all seven files (three JSON adapter manifests, three TOML/JSON project files, one frontend `package.json`), tag `vX.Y.Z`.
+
+## Lean Plugin Deep Dive
+
+How the Lean plugin actually activates, where it stores state, and known bugs.
+
+### Activation flow (Claude Code / Codex host)
+
+Plugin manifest: `hooks/claude-codex-hooks.json`. Three hook events wired:
+
+| Event | Script | Purpose |
+|-------|--------|---------|
+| `SessionStart` (matcher `startup\|resume\|clear\|compact`) | `hooks/lean_activate.py` | Read mode flag, write it back (persists default on first run), inject ruleset into system context via stdout. |
+| `UserPromptSubmit` | `hooks/lean_mode_tracker.py` | Parse `/lean lite\|full\|ultra\|off` from the prompt or its `<command-name>`/`<command-args>` envelope. Rewrites the flag and re-injects the new ruleset for the current turn. |
+| `SubagentStart` | `hooks/lean_subagent.py` | Re-inject the ruleset into `Task`-spawned subagents (parent system context does not propagate). |
+
+Ruleset text comes from a single source: `skills/lean/SKILL.md`, filtered per-mode by `app/services/skills.py::get_lean_instructions(mode)`. The plugin, the `lean-mcp` server, and the FastAPI adapters (`app/services/formats.build_messages`) all call the same builder — zero drift.
+
+Mode lifecycle for a single prompt:
+
+```
+user types "/lean ultra"
+        ↓
+Claude Code fires UserPromptSubmit hook with JSON on stdin
+        ↓
+lean_mode_tracker.py:
+  read_stdin_json() → {"prompt": "<command-name>/lean</command-name>..."}
+  _unwrap() reconstructs "/lean ultra"
+  _CMD regex matches → arg = "ultra"
+  write_mode("ultra")          # persists to state file
+  emit_prompt_submit(
+     systemMessage="LEAN MODE → ultra",
+     additionalContext=get_lean_instructions("ultra")
+  )
+        ↓
+Claude Code merges additionalContext into this turn's system context
+```
+
+Next session, `SessionStart` reads the same flag and re-emits the ruleset — no manual reactivation required *in the ideal case*.
+
+### State / "history" storage
+
+There is no session history log. The plugin persists **only** the current mode as a single flag file.
+
+Path (from `hooks/_lean_common.py`):
+
+```
+{CLAUDE_STATE_DIR | CLAUDE_CONFIG_DIR | ~/.claude}/.lean-active-<sha1(project)[:8]>
+```
+
+Where `<project>` is the first non-empty of `CLAUDE_PROJECT_DIR`, then `PWD`. If neither is set, the suffix is omitted and the flag becomes global (`~/.claude/.lean-active`). This per-project scoping (`ponytail #662`) exists so concurrent sessions in different repos do not clobber each other's mode.
+
+File contents: literal string, one of `lite`, `full`, `ultra`, `off`. Max 64 bytes. Written atomically (`O_CREAT|O_EXCL` temp + `os.replace`) with mode `0600`. Reader refuses symlinks and oversize files (silent fall through to default). Default when the flag is missing or invalid: value of `LEAN_DEFAULT_MODE` env var if valid, otherwise `full`.
+
+"Off" is stored as the literal string `off` rather than deleting the flag — so `stop lean` persists across new sessions (`#488`). To fully reset: `rm -f ~/.claude/.lean-active*`.
+
+Conversation history, previous prompts, or per-turn diffs are **not** recorded anywhere by this plugin. If you want that, it does not currently exist.
+
+### Bug 1 — token savings display (FIXED)
+
+**Was**: no `/lean-stats` command, no skill, no wired hook. `hooks/lean_usage_probe.py` was a self-labeled TEMP probe never registered in `claude-codex-hooks.json`.
+
+**Fix**: `hooks/lean_stats.py` reads the current session's JSONL transcript (from `session_id`/`transcript_path` in the hook payload, or the most-recent file under `~/.claude/projects/<slug>/`) and aggregates `message.usage.{input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens}`. `lean_mode_tracker.py` recognises `/lean-stats` (raw or via `<command-name>` envelope) and emits the formatted stats as a `systemMessage`. `commands/lean-stats.toml` registers the slash command. Estimated savings use the Lean-vs-baseline output-token median from `benchmarks/` (~65%) — shown as an estimate, not a per-session measurement.
+
+Example output:
+
+```
+LEAN STATS (full) — session 088f0104
+  Turns:              143
+  Input tokens:       4,977
+  Cache read:         13,818,871
+  Cache creation:     1,013,683
+  Output tokens:      458,928
+  Est. output saved:  ~852,295 (baseline ~1,311,223, benchmark median 65%)
+```
+
+Trigger with `/lean-stats` or `/prompt-studio:lean-stats`. Self-check: `python3 hooks/lean_stats.py`.
+
+### Bug 2 — reactivation required after logout/login (FIXED)
+
+**Was**: two contributing causes.
+
+1. **Non-stable project key.** `_project_scope()` hashed the raw `CLAUDE_PROJECT_DIR`/`PWD`. Symlinks, trailing slashes, and Finder-vs-terminal launches all produced different hashes for the same repo, so the flag lookup missed and fell back to default `full`.
+2. **Write-back of the default.** `lean_activate.py` called `write_mode(read_mode())` unconditionally on `SessionStart`. When the read fell back to default `full` because of reason (1), that default got persisted under the new drifted hash key — orphaning the user's real `ultra` under the old key.
+
+(Host-level plugin state loss on account switch is a Claude Code UX issue and outside this repo's scope. Recovery there is `/plugin marketplace add ...` + `/plugin install ...` again.)
+
+**Fix**:
+
+- `hooks/_lean_common.py::_project_scope()` now normalizes via `os.path.realpath()` and strips trailing separators before hashing. All three of `/repo`, `/repo/`, and `/symlink-to-repo` collapse to one key.
+- `hooks/_lean_common.py::read_mode()` now checks the project-scoped flag first, then falls through to the global `~/.claude/.lean-active`. Any pre-normalization or ambiguous-cwd preference is still honoured.
+- `hooks/_lean_common.py::has_persisted_mode()` (new) reports whether either flag file actually exists on disk.
+- `hooks/lean_activate.py` now only calls `write_mode()` when `has_persisted_mode()` is true. On a fresh launch nothing is written — the ruleset is still injected, but the default no longer pins a drifted key.
+
+Long-term follow-up: a committable `.lean.toml` in the project root would survive host-level state loss entirely. Not built yet — YAGNI unless the host-state problem recurs after these fixes.
+
+### Diagnostics
+
+Quick checks to run when Lean seems inactive:
+
+```bash
+# Is the flag file present and what does it contain?
+ls -la ~/.claude/.lean-active*
+cat ~/.claude/.lean-active* 2>/dev/null
+
+# Does the SessionStart hook produce output when run directly?
+python3 hooks/lean_activate.py
+
+# Simulate a /lean ultra prompt through the tracker.
+echo '{"prompt": "/lean ultra"}' | python3 hooks/lean_mode_tracker.py
+
+# What project hash is the current shell computing?
+python3 -c "import hashlib, os; p=os.environ.get('CLAUDE_PROJECT_DIR') or os.environ.get('PWD'); print(hashlib.sha1(p.encode()).hexdigest()[:8], p)"
+```
+
+If `lean_activate.py` prints the full ruleset, the plugin code is fine — the issue is at the host's hook wiring or plugin registration.
 
 ## Contributing
 
