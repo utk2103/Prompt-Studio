@@ -178,6 +178,16 @@ ANTHROPIC_API_KEY=sk-ant-... python benchmarks/benchmark.py \
 
 Includes the standard five tasks (email, debounce, csv-sum, countdown, rate-limit) plus two Prompt-Studio-specific tasks that exercise the per-provider adapters (`chatml2xml`, `cost-est`). Agentic sub-harness (`benchmarks/agentic/`) runs the arms as full Claude Code sessions against a real repo.
 
+## Statusline (optional)
+
+Show the active Lean level in your Claude Code statusline. A plugin can't self-register a statusline, so point `~/.claude/settings.json` at the script:
+
+```json
+{ "statusLine": { "type": "command", "command": "bash /ABS/PATH/hooks/lean-statusline.sh" } }
+```
+
+Windows: `pwsh -File C:\ABS\PATH\hooks\lean-statusline.ps1`. It prints `[LEAN]` for full, `[LEAN:LEVEL]` otherwise (amber for `ultra`), and stays silent when Lean is off. It reads the same project-scoped `.lean-active` flag the hooks write.
+
 ## Install as an Agent Plugin
 
 Prompt-Studio ships adapters for the major agent hosts. Each one injects the Lean persona from the same `skills/lean/SKILL.md` — one source of truth, zero drift across hosts.
