@@ -46,9 +46,10 @@ Task: *"Add a cache for these API responses."*
 |-------|---------|--------------|
 | **lean** | `/prompt-studio:lean [lite\|full\|ultra]` | Lazy mode itself. Shortest solution that actually works. |
 | **compress** | `/prompt-studio:compress FILE` | Compress a memory file (CLAUDE.md, todos, prefs) into Lean shorthand. Backup at `FILE.original.md`. |
+| **lean-audit** | `/prompt-studio:lean-audit` | Whole-repo over-engineering audit. Ranked list of what to delete/simplify across the codebase. |
 | **lean-help** | `/prompt-studio:lean-help` | This card. |
 
-Codex users: `@lean`, `@compress`, `@lean-help`. OpenCode and Claude Code:
+Codex users: `@lean`, `@compress`, `@lean-audit`, `@lean-help`. OpenCode and Claude Code:
 slash-command forms above.
 
 ---
