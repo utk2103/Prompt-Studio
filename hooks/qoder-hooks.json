@@ -1,0 +1,26 @@
+{
+  "_comment": "Reference template for Prompt-Studio Lean — copy the 'hooks' object into your .qoder/settings.json or ~/.qoder/settings.json. Replace LEAN_DIR with the path to your Prompt-Studio checkout (e.g. ~/.qoder/plugins/prompt-studio or the install path). Requires python3 (or python) on PATH.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v python3 >/dev/null 2>&1 && exec python3 \"LEAN_DIR/hooks/lean_mode_tracker.py\" || exec python \"LEAN_DIR/hooks/lean_mode_tracker.py\"'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "task|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v python3 >/dev/null 2>&1 && exec python3 \"LEAN_DIR/hooks/lean_subagent.py\" || exec python \"LEAN_DIR/hooks/lean_subagent.py\"'"
+          }
+        ]
+      }
+    ]
+  }
+}

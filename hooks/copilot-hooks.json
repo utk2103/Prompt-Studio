@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "sh -c 'command -v python3 >/dev/null 2>&1 && exec python3 \"${PLUGIN_ROOT}/hooks/lean_activate.py\" || exec python \"${PLUGIN_ROOT}/hooks/lean_activate.py\"'",
+        "powershell": "python \"${PLUGIN_ROOT}\\hooks\\lean_activate.py\"",
+        "timeoutSec": 5
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "sh -c 'command -v python3 >/dev/null 2>&1 && exec python3 \"${PLUGIN_ROOT}/hooks/lean_mode_tracker.py\" || exec python \"${PLUGIN_ROOT}/hooks/lean_mode_tracker.py\"'",
+        "powershell": "python \"${PLUGIN_ROOT}\\hooks\\lean_mode_tracker.py\"",
+        "timeoutSec": 5
+      }
+    ]
+  }
+}
