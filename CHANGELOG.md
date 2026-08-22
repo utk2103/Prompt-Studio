@@ -10,6 +10,30 @@ Versions are kept in lockstep across the seven manifests listed in
 
 ## [Unreleased]
 
+### Added
+- `/lean-debt` (`/prompt-studio:lean-debt`) — harvest `lean:` comments into a
+  read-only debt ledger; markers with no upgrade path get a `no-trigger` tag.
+  `skills/lean-debt/SKILL.md`, `commands/lean-debt.toml`.
+- `/lean-review` (`/prompt-studio:lean-review`) — diff review for
+  over-engineering only (delete/stdlib/native/yagni/shrink), ends `net: -N lines`.
+  `skills/lean-review/SKILL.md`, `commands/lean-review.toml`.
+- `/lean-audit` (`/prompt-studio:lean-audit`) — whole-repo lean-review, ranked
+  biggest-cut-first with net lines + deps. `skills/lean-audit/SKILL.md`,
+  `commands/lean-audit.toml`.
+- `/lean-gain` (`/prompt-studio:lean-gain`) — measured impact scoreboard
+  (LOC ▼65–75%, ~4× speed; no cost bar by design, cost is flat single-shot).
+  `skills/lean-gain/SKILL.md`, `commands/lean-gain.toml`.
+- Lean statusline — `hooks/lean-statusline.sh` + `hooks/lean-statusline.ps1`,
+  opt-in via `statusLine.command`. Prints `[LEAN]`/`[LEAN:LEVEL]` (amber for
+  ultra), reads the project-scoped `.lean-active` flag.
+- Copilot and Qoder hook adapters — `hooks/copilot-hooks.json`,
+  `hooks/qoder-hooks.json`; call the Python hooks via the python3→python fallback.
+- Editor / marketplace surfaces — `.agents/rules/lean.md`,
+  `.agents/plugins/marketplace.json`, `.windsurf/rules/lean.md`,
+  `gemini-extension.json`.
+- Lean page (`frontend/app/lean/page.tsx`) — Commands section listing the eight
+  slash commands; refreshed host/integration list.
+
 ## [1.1.0] - 2026-08-21
 
 ### Added
