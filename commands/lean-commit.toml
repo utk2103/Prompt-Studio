@@ -1,0 +1,2 @@
+description = "Generate terse commit message"
+prompt = "Generate a terse commit message for the current staged changes. Conventional Commits format. Subject: ≤50 chars, imperative, lowercase after type, no trailing period. Body: only when the 'why' isn't obvious from the subject; wrap at 72, bullets with '-'. Why over what. Output as a paste-ready code block only — do not run git commit, stage, or amend."
