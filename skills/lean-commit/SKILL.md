@@ -4,7 +4,7 @@ description: >
   Ultra-compressed commit message generator. Cuts noise from commit messages while preserving
   intent and reasoning. Conventional Commits format. Subject ≤50 chars, body only when "why"
   isn't obvious. Use when user says "write a commit", "commit message", "generate commit",
-  "/commit", or invokes /prompt-studio:lean-commit. Auto-triggers when staging changes.
+  "/commit", or invokes /prompt-studio:lean-commit. Offer it when the user stages changes.
 license: Apache-2.0
 ---
 
