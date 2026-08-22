@@ -1,6 +1,7 @@
 """Lean benchmark driver — measures LOC, latency, tokens, cost across arms.
 
-Arms: baseline / caveman / lean-lite / lean-full / lean-ultra
+Arms: baseline / terse / caveman / lean-lite / lean-full / lean-ultra
+(terse = "Answer concisely." control; headline delta is skill-vs-terse)
 Backends: Anthropic API (--backend anthropic) or Ollama (--backend ollama)
 
 Usage:
@@ -248,6 +249,18 @@ def summarize(results: dict, model: str, repeat: int) -> None:
         arm_total = sum(med(results[arm][t], "loc") for t in task_ids)
         pct = (1 - arm_total / base) * 100
         print(f"  {arm:12s}: {arm_total:.0f} LOC  ({abs(pct):.0f}% {'less' if pct >= 0 else 'more'} than baseline)")
+
+    # Honest skill delta: skill-vs-terse isolates the skill from generic
+    # "be concise". This is the headline number, not vs-baseline.
+    if "terse" in results:
+        print(f"\n{'=' * 72}\n  vs terse — honest skill delta (LOC totals)\n{'=' * 72}")
+        terse_total = sum(med(results["terse"][t], "loc") for t in task_ids) or 1
+        for arm in results:
+            if arm in ("baseline", "terse"):
+                continue
+            arm_total = sum(med(results[arm][t], "loc") for t in task_ids)
+            pct = (1 - arm_total / terse_total) * 100
+            print(f"  {arm:12s}: {arm_total:.0f} LOC  ({abs(pct):.0f}% {'less' if pct >= 0 else 'more'} than terse)")
 
 
 def main() -> None:

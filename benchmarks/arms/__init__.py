@@ -37,8 +37,18 @@ def _msgs(system: str | None, task: str) -> list[dict]:
     return out
 
 
+# Terse control: plain "be concise", no skill. The honest skill delta is
+# skill-vs-terse, not skill-vs-baseline — it isolates the skill from generic
+# terseness. lean: single fixed prefix, no per-model tuning.
+TERSE_PREFIX = "Answer concisely."
+
+
 def baseline(task: str) -> list[dict]:
     return _msgs(None, task)
+
+
+def terse(task: str) -> list[dict]:
+    return _msgs(TERSE_PREFIX, task)
 
 
 def caveman(task: str) -> list[dict]:
@@ -64,6 +74,7 @@ def ponytail_ultra(task: str) -> list[dict]: return _msgs(_ponytail_instructions
 
 ARMS = {
     "baseline":      baseline,
+    "terse":         terse,
     "caveman":       caveman,
     "lean-lite":     lean_lite,
     "lean-full":     lean_full,
