@@ -12,7 +12,6 @@ from database import Base
 
 # Embedding dimension — 1536 matches OpenAI text-embedding-ada-002 / text-embedding-3-small.
 # Change to 384 for sentence-transformers/all-MiniLM-L6-v2 (lighter, local).
-# checking pep8 integration and working
 EMBEDDING_DIM = 1536
 
 
