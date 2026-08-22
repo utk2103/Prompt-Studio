@@ -10,11 +10,23 @@ const INTENSITIES = [
 ];
 
 const HOSTS = [
-  ['GitHub Copilot CLI', 'Plugin · copilot plugin install prompt-studio@prompt-studio'],
+  ['GitHub Copilot CLI', 'Plugin · copilot plugin install prompt-studio@prompt-studio · hooks/copilot-hooks.json'],
   ['Devin CLI', 'Plugin · devin plugins install utk2103/Prompt-Studio'],
-  ['Qoder', 'Rules · .qoder/rules + hooks/qoder-hooks.json'],
-  ['Cursor / Windsurf / Cline / Kiro / Zed', 'Rules file drop into host rules directory'],
+  ['Qoder', 'Reference template · hooks/qoder-hooks.json → .qoder/settings.json'],
+  ['Cursor / Windsurf / Cline / Kiro / Zed', 'Rules file · .cursor + .windsurf/rules/lean.md'],
+  ['Gemini CLI', 'Extension · gemini-extension.json'],
   ['JetBrains / VS Code Copilot Chat / Amp / Jules / CodeWhale / Antigravity', 'AGENTS.md at repo root'],
+];
+
+const COMMANDS = [
+  ['/prompt-studio:lean', 'lite | full | ultra — the lazy-senior-dev mode itself'],
+  ['/prompt-studio:compress', 'Compress a memory file (CLAUDE.md, todos) into Lean shorthand'],
+  ['/prompt-studio:lean-stats', 'Real per-session token usage from the transcript'],
+  ['/prompt-studio:lean-debt', 'Harvest lean: comments into a tracked debt ledger'],
+  ['/prompt-studio:lean-review', 'Review a diff for over-engineering only'],
+  ['/prompt-studio:lean-audit', 'Whole-repo over-engineering audit'],
+  ['/prompt-studio:lean-gain', 'Measured impact scoreboard — less code, more speed'],
+  ['/prompt-studio:lean-help', 'Quick-reference card for all Lean commands'],
 ];
 
 const LEAN_EXAMPLE = `from app.services.formats import build_messages
@@ -108,6 +120,26 @@ export default function LeanPage() {
             <Link href="/mcp" className="d-cta-ghost">MCP server →</Link>
             <Link href="https://github.com/utk2103/Prompt-Studio" className="d-cta">Install</Link>
           </div>
+        </div>
+      </section>
+
+      <section className="d-section" style={{ borderTop: '1px solid var(--d-line)' }}>
+        <div className="d-container">
+          <div className="d-coord" style={{ marginBottom: 14 }}>/L.04 Commands</div>
+          <h2 className="font-display" style={{ fontSize: 'clamp(32px, 4vw, 52px)', letterSpacing: '-0.025em', marginBottom: 32 }}>
+            Eight slash commands, one persona.
+          </h2>
+          <div style={{ border: '1px solid var(--d-line)' }}>
+            {COMMANDS.map(([cmd, what], i) => (
+              <div key={cmd} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', padding: '18px 24px', borderTop: i === 0 ? 0 : '1px solid var(--d-line)', alignItems: 'baseline' }}>
+                <div style={{ fontFamily: 'var(--font-jetbrains), monospace', fontSize: 13, fontWeight: 500 }}>{cmd}</div>
+                <div style={{ fontSize: 14, color: 'var(--d-ink-soft)' }}>{what}</div>
+              </div>
+            ))}
+          </div>
+          <p style={{ marginTop: 20, fontSize: 13, color: 'var(--d-ink-soft)' }}>
+            Optional statusline: point <code style={{ background: 'var(--d-bg-alt)', padding: '2px 6px' }}>statusLine.command</code> at <code style={{ background: 'var(--d-bg-alt)', padding: '2px 6px' }}>hooks/lean-statusline.sh</code> to show the active level.
+          </p>
         </div>
       </section>
     </Shell>
