@@ -34,10 +34,35 @@ def _run(script: str, tmp_path, stdin: str = "") -> subprocess.CompletedProcess:
 
 
 def test_activate_emits_lean_ruleset(tmp_path):
+    # Fresh state: ruleset must still be emitted, but the hook must NOT write
+    # the default back to disk — writing a drifted-key default would orphan a
+    # real preference persisted under a different key from a prior launch.
     res = _run("lean_activate.py", tmp_path)
     assert res.returncode == 0
     assert "LEAN MODE ACTIVE" in res.stdout
-    assert _flag(tmp_path).exists()
+    assert not _flag(tmp_path).exists()
+    assert not (tmp_path / ".lean-active").exists()
+
+
+def test_activate_preserves_persisted_mode(tmp_path):
+    _flag(tmp_path).write_text("ultra")
+    res = _run("lean_activate.py", tmp_path)
+    assert res.returncode == 0
+    assert "LEAN MODE ACTIVE" in res.stdout
+    # Ultra content survives byte-for-byte (no default overwrite).
+    assert _flag(tmp_path).read_text().strip() == "ultra"
+
+
+def test_activate_falls_through_to_global_flag(tmp_path):
+    # Simulate the "project-key drift" case: the project-scoped flag is
+    # missing but the un-scoped global flag holds the user's real preference.
+    (tmp_path / ".lean-active").write_text("ultra")
+    res = _run("lean_activate.py", tmp_path)
+    assert res.returncode == 0
+    assert "LEAN MODE ACTIVE" in res.stdout
+    # Global flag stays put; project-scoped write only happens when
+    # something was already persisted at *either* location.
+    assert (tmp_path / ".lean-active").read_text().strip() == "ultra"
 
 
 def test_mode_tracker_switches_intensity(tmp_path):
@@ -76,6 +101,31 @@ def test_mode_tracker_off_persists_state(tmp_path):
     payload = json.loads(res.stdout)
     assert payload["hookSpecificOutput"]["systemMessage"] == "LEAN MODE OFF"
     assert _flag(tmp_path).read_text().strip() == "off"
+
+
+def test_mode_tracker_lean_stats_reports_usage(tmp_path):
+    # Fabricate a transcript at the payload's transcript_path so the stats
+    # aggregator has something to sum without touching the user's real logs.
+    transcript = tmp_path / "sess.jsonl"
+    transcript.write_text(
+        json.dumps({"message": {"usage": {
+            "input_tokens": 10, "output_tokens": 20,
+            "cache_read_input_tokens": 5, "cache_creation_input_tokens": 7}}}) + "\n"
+        + json.dumps({"message": {"usage": {
+            "input_tokens": 3, "output_tokens": 40,
+            "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}}}) + "\n"
+    )
+    res = _run(
+        "lean_mode_tracker.py",
+        tmp_path,
+        stdin=json.dumps({"prompt": "/lean-stats", "transcript_path": str(transcript)}),
+    )
+    assert res.returncode == 0
+    payload = json.loads(res.stdout)
+    msg = payload["hookSpecificOutput"]["systemMessage"]
+    assert "LEAN STATS" in msg
+    assert "Turns:              2" in msg
+    assert "Output tokens:      60" in msg
 
 
 def test_subagent_injects_ruleset(tmp_path):
