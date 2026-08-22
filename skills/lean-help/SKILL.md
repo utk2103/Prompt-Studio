@@ -50,6 +50,12 @@ Task: *"Add a cache for these API responses."*
 | **lean-help** | `/prompt-studio:lean-help` | This card. |
 
 Codex users: `@lean`, `@compress`, `@lean-audit`, `@lean-help`. OpenCode and Claude Code:
+| **lean-review** | `/prompt-studio:lean-review` | Review a diff for over-engineering only. One line per finding: what to cut, what replaces it. |
+
+Codex users: `@lean`, `@compress`, `@lean-review`, `@lean-help`. OpenCode and Claude Code:
+| **lean-debt** | `/prompt-studio:lean-debt` | Harvest `lean:` comments into a debt ledger so deferrals get tracked, not forgotten. |
+
+Codex users: `@lean`, `@compress`, `@lean-debt`, `@lean-help`. OpenCode and Claude Code:
 slash-command forms above.
 
 ---

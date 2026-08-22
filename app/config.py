@@ -23,11 +23,21 @@ class AppConfig(BaseSettings):
 
     allow_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     allow_methods: list[str] = Field(default_factory=lambda: ["GET", "POST", "DELETE"])
-    allow_headers: list[str] = Field(default_factory=lambda: ["*"])
+    # "*" already covers custom headers, but browsers still require them listed
+    # for non-simple requests when credentials are involved. Explicit is safer.
+    allow_headers: list[str] = Field(default_factory=lambda: ["*", "X-Memory-Backend"])
 
     fref_score_enabled: bool = True
 
     history_max: int = 50
+
+    # Memory backend: "local" (in-process deque) or "supermemory" (v3 REST).
+    # Frontend can override per-request via the X-Memory-Backend header.
+    memory_backend: str = Field(default="local")
+    supermemory_api_key: str = Field(default="")
+    supermemory_container_tag: str = Field(default="prompt-studio")
+    supermemory_base_url: str = Field(default="https://api.supermemory.ai/v3")
+    supermemory_user_id: str = Field(default="default")
 
 
 @lru_cache(maxsize=1)
