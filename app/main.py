@@ -6,10 +6,29 @@ from fastapi.responses import JSONResponse
 
 from app.config import get_config
 from app.exceptions import HTTPError
-from app.lifespan import lifespan
+from app.lifespan import lifespan, lifespan_manager
+from app.logger import logger
 from app.routes import analyze, compress, health, history, models, optimize, score, tokens, ui, wizard
 
 API_PREFIX = "/api/v1"
+
+
+@lifespan_manager.on_startup
+async def _load_model_catalog() -> None:
+    """Seed the catalog on first boot and load it into the registry overlay.
+    Best-effort: a missing/unreachable DB must not stop the app from starting."""
+    from app.db.session import SessionLocal
+    from app.services import model_catalog
+
+    try:
+        db = SessionLocal()
+        try:
+            model_catalog.seed_if_empty(db)
+            model_catalog.load_overlay(db)
+        finally:
+            db.close()
+    except Exception:
+        logger.warning("model catalog startup skipped (DB unavailable)", exc_info=True)
 
 
 def create_app() -> FastAPI:

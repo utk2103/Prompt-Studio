@@ -14,13 +14,43 @@ MODELS: dict[str, dict] = {
 
 DEFAULT_MODEL_ID = "claude-3-5"
 
+# Maps each stable public slug to its key in the LiteLLM price map
+# (BerriAI/litellm model_prices_and_context_window.json). Used by the server's
+# refresh job; slugs whose key is missing from the source keep their seed values.
+# claude-3-5 / gemini-15 are retired upstream, so refresh reports them under
+# `missing_from_source` and keeps the (now-frozen) seed pricing — intended.
+LITELLM_KEYS: dict[str, str] = {
+    "gpt-4o": "gpt-4o",
+    "claude-3-5": "claude-3-5-sonnet-20241022",
+    "gemini-15": "gemini-1.5-pro",
+    "gpt-35": "gpt-3.5-turbo",
+    "llama3": "meta.llama3-1-70b-instruct-v1:0",
+    "mistral": "mistral/mistral-large-latest",
+    "deepseek": "deepseek/deepseek-chat",
+}
+
+# Optional in-process overlay of refreshed values, keyed by slug. The library
+# (pip `promptstudio`) never populates this and stays on MODELS; the FastAPI
+# server loads it from the DB at startup and after each refresh so cost math
+# reflects live pricing without the registry importing SQLAlchemy.
+_OVERLAY: dict[str, dict] = {}
+
+
+def apply_overlay(rows: dict[str, dict]) -> None:
+    _OVERLAY.clear()
+    _OVERLAY.update(rows)
+
+
+def clear_overlay() -> None:
+    _OVERLAY.clear()
+
 
 def get_model(model_id: str) -> dict:
-    mdl = MODELS.get(model_id)
+    mdl = _OVERLAY.get(model_id) or MODELS.get(model_id)
     if mdl is None:
         raise UnknownModelError(f"Unknown model_id: {model_id!r}")
     return mdl
 
 
 def get_model_or_default(model_id: str) -> dict:
-    return MODELS.get(model_id, MODELS[DEFAULT_MODEL_ID])
+    return _OVERLAY.get(model_id) or MODELS.get(model_id) or _OVERLAY.get(DEFAULT_MODEL_ID) or MODELS[DEFAULT_MODEL_ID]

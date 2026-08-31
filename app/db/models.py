@@ -4,12 +4,30 @@ import time
 import uuid
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, BigInteger, Column, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, Column, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.db.session import Base
 
 EMBEDDING_DIM = 1536
+
+
+class ModelCatalog(Base):
+    """Live model metadata (pricing / context window) refreshed from the
+    LiteLLM price map. Seeded from ``models_registry.MODELS``; the seed dict
+    stays the fallback so the app never hard-depends on a successful refresh."""
+
+    __tablename__ = "model_catalog"
+
+    id = Column(String(50), primary_key=True)  # our stable public slug
+    name = Column(String(120), nullable=False)
+    provider = Column(String(60), nullable=False)
+    context = Column(Integer, nullable=False)
+    cost_in = Column(Float, nullable=False)  # USD per 1M input tokens
+    cost_out = Column(Float, nullable=False)  # USD per 1M output tokens
+    format = Column(String(60), nullable=False)
+    litellm_key = Column(String(120), nullable=True)  # key used to look this up in the source
+    updated_at = Column(BigInteger, nullable=False, default=lambda: int(time.time() * 1000))
 
 
 class PromptRecord(Base):

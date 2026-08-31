@@ -10,6 +10,19 @@ Versions are kept in lockstep across the seven manifests listed in
 
 ## [Unreleased]
 
+### Added
+- Model catalog auto-refresh. `POST /api/v1/models/refresh` pulls live pricing
+  and context windows from the LiteLLM price map, upserts our known model slugs
+  into a new `model_catalog` Postgres table, and returns a diff
+  (`updated` / `missing_from_source` / `price_changes`). `GET /api/v1/models`
+  now serves the DB catalog, falling back to the hardcoded seed when the table
+  is empty or the DB is unavailable. New files: `app/services/model_catalog.py`,
+  `alembic/versions/002_model_catalog.py`; `ModelCatalog` ORM model.
+- `models_registry` in-process overlay (`apply_overlay` / `clear_overlay`) +
+  `LITELLM_KEYS` slug→source mapping, so server cost math reflects refreshed
+  prices while the pip `promptstudio` library stays DB-free on the seed dict.
+- Config: `litellm_price_url`, `litellm_fetch_timeout`.
+
 ## [1.2.0] - 2026-08-31
 
 ### Added
