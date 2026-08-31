@@ -10,7 +10,19 @@ Versions are kept in lockstep across the seven manifests listed in
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-31
+
 ### Added
+- Pip-installable lean utilities. `pip install promptstudio-ai` now ships a
+  light core (pydantic / pydantic-settings / python-dotenv only — no FastAPI or
+  DB) exposing a `promptstudio` package and a `promptstudio` console command.
+  - `promptstudio/__init__.py` — public library surface re-exporting the
+    pure-Python services: `token_report`, `estimate_tokens`, `compress_report`,
+    `caveman_compress`, `analyze_prompt`, `compare_across_models`, `score_prompt`,
+    `get_issues`, `optimize_prompt`, `format_for_model`, `MODELS`,
+    `get_model_or_default`, `DEFAULT_MODEL_ID`.
+  - `promptstudio/cli.py` — `promptstudio` CLI with `cost`, `compress`, `score`,
+    `optimize`, `analyze`, `format` subcommands; reads stdin via `-`, emits JSON.
 - `/lean-debt` (`/prompt-studio:lean-debt`) — harvest `lean:` comments into a
   read-only debt ledger; markers with no upgrade path get a `no-trigger` tag.
   `skills/lean-debt/SKILL.md`, `commands/lean-debt.toml`.
@@ -33,6 +45,13 @@ Versions are kept in lockstep across the seven manifests listed in
   `gemini-extension.json`.
 - Lean page (`frontend/app/lean/page.tsx`) — Commands section listing the eight
   slash commands; refreshed host/integration list.
+
+### Changed
+- `pyproject.toml` — web/DB dependencies (fastapi, uvicorn, python-multipart,
+  sqlalchemy, alembic, psycopg2-binary, pgvector) moved from `dependencies` to a
+  `[server]` optional-dependency extra. Run the full API with
+  `pip install "promptstudio-ai[server]"`. Added the `promptstudio` console
+  script and `promptstudio` to the build includes.
 
 ## [1.1.0] - 2026-08-21
 
@@ -81,6 +100,7 @@ truth, `lean-mcp` stdio server, benchmarks harness, and plugin adapters for
 Claude Code, Codex, Devin, Copilot CLI, Qoder, Cursor, Windsurf, Cline, Kiro,
 and Zed.
 
-[Unreleased]: https://github.com/utk2103/Prompt-Studio/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/utk2103/Prompt-Studio/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/utk2103/Prompt-Studio/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/utk2103/Prompt-Studio/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/utk2103/Prompt-Studio/releases/tag/v1.0.0

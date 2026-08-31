@@ -1,6 +1,6 @@
 [project]
 name = "promptstudio-ai"
-version = "1.1.0"
+version = "1.2.0"
 readme = "README.md"
 description = "AI-powered prompt engineering assistant: scoring, validation, optimization, and semantic search."
 authors = [
@@ -10,13 +10,18 @@ requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
+    # Core lean utilities (CLI + library) — light install, no web/DB.
+    "pydantic>=2.9",
+    "pydantic-settings>=2.4.0",
+    "python-dotenv>=1.0.1",
+]
+
+[project.optional-dependencies]
+server = [
     # API
     "fastapi[all]>=0.115.0",
     "uvicorn[standard]>=0.32",
-    "pydantic>=2.9",
-    "pydantic-settings>=2.4.0",
     "python-multipart>=0.0.9",
-    "python-dotenv>=1.0.1",
     # Database + ORM
     "sqlalchemy>=2.0.36",
     "alembic>=1.14.0",
@@ -25,10 +30,16 @@ dependencies = [
     "pgvector>=0.3.6",
 ]
 
+[project.scripts]
+promptstudio = "promptstudio.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/utk2103/prompt-studio"
 Repository = "https://github.com/utk2103/prompt-studio"
 Issues = "https://github.com/utk2103/prompt-studio"
+
+[tool.pdm.build]
+includes = ["app", "promptstudio"]
 
 [tool.pdm.scripts]
 start          = "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4"
