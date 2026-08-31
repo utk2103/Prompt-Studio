@@ -31,6 +31,12 @@ class AppConfig(BaseSettings):
 
     history_max: int = 50
 
+    # Model-catalog refresh: source of truth for live pricing / context windows.
+    litellm_price_url: str = Field(
+        default="https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+    )
+    litellm_fetch_timeout: float = 15.0
+
     # Memory backend: "local" (in-process deque) or "supermemory" (v3 REST).
     # Frontend can override per-request via the X-Memory-Backend header.
     memory_backend: str = Field(default="local")
