@@ -66,7 +66,7 @@ export default function Tokens({ state, update }: Props) {
         </select>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 32 }}>
         <Stat label="Input tokens"      val={inTok}                     sub={`~${Math.round(inTok * 0.75)} words`} />
         <Stat label="Est. output (min)" val={estMin}                    sub="conservative" />
         <Stat label="Est. output (max)" val={estMax}                    sub="expansive" tint="#c9a227" />
@@ -100,7 +100,7 @@ export default function Tokens({ state, update }: Props) {
 
       <div>
         <div className="d-coord" style={{ marginBottom: 10 }}>/ESTIMATED API COST (per call)</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
           {[
             { label: 'Input',         val: '$' + (inTok * ci).toFixed(6),                       tint: 'var(--d-ink)' },
             { label: 'Output (mid)',  val: '$' + (estMid * co).toFixed(6),                      tint: '#c9a227' },

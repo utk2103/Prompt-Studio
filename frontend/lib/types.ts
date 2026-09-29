@@ -43,7 +43,7 @@ export interface Issue {
   m: string;
 }
 
-export type ViewType = 'ANALYZE' | 'SCORE' | 'TOKENS' | 'CONTEXT' | 'MODELS' | 'WIZARD' | 'HISTORY';
+export type ViewType = 'NONE' | 'SCORE' | 'TOKENS' | 'CONTEXT' | 'MODELS';
 export type ModeType = 'TECHNICAL' | 'CREATIVE' | 'SYSTEM';
 
 export interface AppState {

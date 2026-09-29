@@ -7,21 +7,14 @@ import { initAPI } from '@/lib/api';
 
 import Nav from '@/components/marketing/Nav';
 import Header from '@/components/Header';
-import SideNav from '@/components/SideNav';
-import StatusBar from '@/components/StatusBar';
 import ToastContainer from '@/components/ToastContainer';
-import Analyze from '@/components/views/Analyze';
-import Score from '@/components/views/Score';
-import Tokens from '@/components/views/Tokens';
-import Context from '@/components/views/Context';
-import Models from '@/components/views/Models';
-import Wizard from '@/components/views/Wizard';
-import History from '@/components/views/History';
-import LoadingState from '@/components/LoadingState';
 import PromptModal from '@/components/PromptModal';
+import ChatSurface from '@/components/chat/ChatSurface';
+import HistoryRail from '@/components/chat/HistoryRail';
+import DetailDrawer from '@/components/chat/DetailDrawer';
 
 const INITIAL: AppState = {
-  view: 'ANALYZE',
+  view: 'NONE',
   prompt: '',
   mode: 'TECHNICAL',
   model: 'claude-3-5',
@@ -58,43 +51,25 @@ export default function StudioPage() {
     initAPI().then(({ apiOnline, models, wizardQ, history, supermemoryAvailable }) => {
       update({ apiOnline, models, wizardQ, history, supermemoryAvailable });
       if (apiOnline) toast('API connected. Enhanced mode active.', 'ok');
-      if (supermemoryAvailable) toast('Supermemory backend available. Toggle in History.', 'info');
+      if (supermemoryAvailable) toast('Supermemory available. Toggle in the history rail.', 'info');
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const renderView = () => {
-    if (state.loading) {
-      return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 320 }}>
-          <LoadingState label={state.loadingLabel || 'Working'} variant="Drive" />
-        </div>
-      );
-    }
-    const props = { state, update, toast };
-    switch (state.view) {
-      case 'ANALYZE': return <Analyze {...props} />;
-      case 'SCORE':   return <Score state={state} update={update} />;
-      case 'TOKENS':  return <Tokens state={state} update={update} />;
-      case 'CONTEXT': return <Context state={state} />;
-      case 'MODELS':  return <Models state={state} update={update} />;
-      case 'WIZARD':  return <Wizard {...props} />;
-      case 'HISTORY': return <History {...props} />;
-      default: return <Analyze {...props} />;
-    }
-  };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--d-bg)' }}>
       <Nav />
       <Header state={state} />
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <SideNav state={state} update={update} />
-        <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
-          {renderView()}
-        </div>
+        <HistoryRail
+          state={state}
+          update={update}
+          toast={toast}
+          onRestore={(prompt) => update({ prompt })}
+        />
+        <ChatSurface state={state} update={update} toast={toast} />
+        <DetailDrawer state={state} update={update} onClose={() => update({ view: 'NONE' })} />
       </div>
-      <StatusBar state={state} />
       <ToastContainer toasts={toasts} />
       {state.modal && (
         <PromptModal
